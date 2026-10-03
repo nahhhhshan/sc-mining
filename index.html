@@ -67,7 +67,13 @@ details .field{margin-top:10px}
 dl{display:grid;grid-template-columns:auto 1fr;gap:6px 14px;margin:0;font-size:.92rem}
 dt{color:var(--muted)}
 dd{margin:0;font-family:var(--f-mono);text-align:right;font-variant-numeric:tabular-nums}
-.tbl{overflow:auto;max-height:44rem;border:1px solid var(--line);border-radius:4px}
+.tblwrap{display:flex;gap:8px;align-items:flex-start}
+.idx{display:flex;flex-direction:column;gap:4px;position:sticky;top:env(safe-area-inset-top,0px)}
+.idx button{font-family:var(--f-mono);font-size:.85rem;font-variant-numeric:tabular-nums;padding:6px 8px;min-width:3.4em;border:1px solid var(--line);border-radius:4px;background:var(--bg);color:var(--fg);cursor:pointer;text-align:right}
+.idx button:hover{border-color:var(--accent)}
+.idx button:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.idx button[aria-current="true"]{background:var(--accent);border-color:var(--accent);color:var(--panel)}
+.tbl{flex:1;min-width:0;overflow:auto;max-height:44rem;border:1px solid var(--line);border-radius:4px}
 th{position:sticky;top:0;background:var(--panel)}
 table{border-collapse:collapse;width:100%;font-family:var(--f-mono);font-variant-numeric:tabular-nums;font-size:.9rem}
 th,td{padding:6px 10px;text-align:right;border-bottom:1px solid var(--line);white-space:nowrap}
@@ -151,7 +157,10 @@ footer a{color:var(--accent)}
 
   <section class="panel" aria-label="早見表">
     <div class="label">早見表：割れる最大質量（抵抗1%ごと・現在のガジェット設定）</div>
-    <div class="tbl"><table id="tbl"></table></div>
+    <div class="tblwrap">
+      <nav class="idx" id="idx" aria-label="抵抗の行へ移動"></nav>
+      <div class="tbl"><table id="tbl"></table></div>
+    </div>
   </section>
 
   <ul class="notes">
@@ -224,7 +233,7 @@ function render(){
   for (let rr=0; rr<=99; rr++){
     const e = effRes(rr, v.lres, v.gadget);
     if (e >= 100) break;
-    h += `<tr${rr===near?' class="hit" id="hitRow"':''}><td>${rr}%</td>` +
+    h += `<tr data-r="${rr}"${rr===near?' class="hit" id="hitRow"':''}><td>${rr}%</td>` +
       [1,2,3].map(n=>`<td>${fmt(maxMass(v.pow*n, e))}</td>`).join('') + '</tr>';
   }
   $('tbl').innerHTML = h + '</tbody>';
@@ -232,8 +241,21 @@ function render(){
   const row = $('hitRow'), tblBox = $('tbl').parentElement;
   if (row) tblBox.scrollTop = row.offsetTop - tblBox.clientHeight/2 + row.offsetHeight/2;
 
+  // 左の索引：10%ごと。入力した抵抗を含む区切りを強調
+  const rows = $('tbl').tBodies[0].rows.length, cur = Math.floor(near/10)*10;
+  let ix = '';
+  for (let rr=0; rr<rows; rr+=10) ix += `<button type="button" data-r="${rr}" aria-current="${rr===cur}">${rr}%</button>`;
+  $('idx').innerHTML = ix;
+
   try { localStorage.setItem('moleCrack', JSON.stringify({...v, heads})); } catch(e){}
 }
+
+// 索引をクリックすると、その抵抗の行を表の枠の一番上へ
+$('idx').addEventListener('click', ev => {
+  const b = ev.target.closest('button'); if (!b) return;
+  const t = $('tbl'), row = t.querySelector(`tr[data-r="${b.dataset.r}"]`); if (!row) return;
+  t.parentElement.scrollTop = row.offsetTop - t.tHead.offsetHeight;
+});
 
 document.querySelectorAll('#heads button').forEach(b => b.addEventListener('click', () => {
   heads = +b.dataset.v;
