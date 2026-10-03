@@ -229,8 +229,8 @@ function render(){
   }
   $('tbl').innerHTML = h + '</tbody>';
   // 入力した抵抗の行を表の枠の中央へ（ページ自体はスクロールしない）
-  const row = $('hitRow'), box = $('tbl').parentElement;
-  if (row) box.scrollTop = row.offsetTop - box.clientHeight/2 + row.offsetHeight/2;
+  const row = $('hitRow'), tblBox = $('tbl').parentElement;
+  if (row) tblBox.scrollTop = row.offsetTop - tblBox.clientHeight/2 + row.offsetHeight/2;
 
   try { localStorage.setItem('moleCrack', JSON.stringify({...v, heads})); } catch(e){}
 }
