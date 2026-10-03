@@ -67,7 +67,8 @@ details .field{margin-top:10px}
 dl{display:grid;grid-template-columns:auto 1fr;gap:6px 14px;margin:0;font-size:.92rem}
 dt{color:var(--muted)}
 dd{margin:0;font-family:var(--f-mono);text-align:right;font-variant-numeric:tabular-nums}
-.tbl{overflow-x:auto}
+.tbl{overflow:auto;max-height:22rem;border:1px solid var(--line);border-radius:4px}
+th{position:sticky;top:0;background:var(--panel)}
 table{border-collapse:collapse;width:100%;font-family:var(--f-mono);font-variant-numeric:tabular-nums;font-size:.9rem}
 th,td{padding:6px 10px;text-align:right;border-bottom:1px solid var(--line);white-space:nowrap}
 th{font-family:var(--f-disp);font-weight:500;color:var(--muted);font-size:.8rem;letter-spacing:.06em}
@@ -149,7 +150,7 @@ footer a{color:var(--accent)}
   </div>
 
   <section class="panel" aria-label="早見表">
-    <div class="label">早見表：割れる最大質量（現在のガジェット設定）</div>
+    <div class="label">早見表：割れる最大質量（抵抗1%ごと・現在のガジェット設定）</div>
     <div class="tbl"><table id="tbl"></table></div>
   </section>
 
@@ -219,13 +220,17 @@ function render(){
 
   // 早見表
   let h = '<thead><tr><th>岩の抵抗</th><th>1門</th><th>2門</th><th>3門</th></tr></thead><tbody>';
-  const near = Math.round(v.res/10)*10;
-  for (let rr=0; rr<=70; rr+=10){
+  const near = Math.round(v.res);
+  for (let rr=0; rr<=99; rr++){
     const e = effRes(rr, v.lres, v.gadget);
-    h += `<tr class="${rr===near?'hit':''}"><td>${rr}%</td>` +
+    if (e >= 100) break;
+    h += `<tr${rr===near?' class="hit" id="hitRow"':''}><td>${rr}%</td>` +
       [1,2,3].map(n=>`<td>${fmt(maxMass(v.pow*n, e))}</td>`).join('') + '</tr>';
   }
   $('tbl').innerHTML = h + '</tbody>';
+  // 入力した抵抗の行を表の枠の中央へ（ページ自体はスクロールしない）
+  const row = $('hitRow'), box = $('tbl').parentElement;
+  if (row) box.scrollTop = row.offsetTop - box.clientHeight/2 + row.offsetHeight/2;
 
   try { localStorage.setItem('moleCrack', JSON.stringify({...v, heads})); } catch(e){}
 }
