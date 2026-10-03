@@ -85,7 +85,12 @@ header p{margin:4px 0 0;color:var(--muted);font-size:.9rem}
 .tbl{flex:1;min-width:0;overflow:auto;max-height:max(44rem, calc(100dvh - 32px));border:1px solid var(--line);border-radius:4px;background:var(--panel)}
 table{border-collapse:collapse;width:100%;font-family:var(--f-mono);font-variant-numeric:tabular-nums;font-size:.95rem}
 th,td{padding:6px 12px;text-align:right;border-bottom:1px solid var(--line);white-space:nowrap}
-th{position:sticky;top:0;background:var(--panel);font-family:var(--f-disp);font-weight:500;color:var(--muted);font-size:.8rem;letter-spacing:.04em}
+th{position:sticky;top:0;background:var(--panel);font-family:var(--f-disp);font-weight:500;color:var(--muted);font-size:.8rem;letter-spacing:.04em;vertical-align:bottom;line-height:1.35}
+th small{display:block;font-family:var(--f-mono);font-size:.72rem;letter-spacing:0;color:var(--accent)}
+.thead-row{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.use{display:flex;align-items:center;gap:6px;font-size:.85rem;cursor:pointer;user-select:none}
+.use input{width:1.1rem;height:1.1rem;accent-color:var(--accent);margin:0;cursor:pointer}
+.field.off select,.field.off .spec{opacity:.45}
 td:first-child,th:first-child{text-align:left}
 tr.ten td{background:var(--band)}
 tr.ten td:first-child{color:var(--accent);font-weight:600}
@@ -114,9 +119,9 @@ footer a{color:var(--accent)}
     <summary><span class="label" data-i18n="settings"></span><span class="sumtext" id="sumtext"></span></summary>
     <div class="setbody">
       <div class="turrets">
-        <div class="field"><label for="t1" data-i18n="t1"></label><select id="t1"></select><div class="spec" id="s1"></div></div>
-        <div class="field"><label for="t2" data-i18n="t2"></label><select id="t2"></select><div class="spec" id="s2"></div></div>
-        <div class="field"><label for="t3" data-i18n="t3"></label><select id="t3"></select><div class="spec" id="s3"></div></div>
+        <div class="field" id="f1"><div class="thead-row"><label for="t1" data-i18n="t1"></label><label class="use"><input type="checkbox" id="u1" checked><span data-i18n="use"></span></label></div><select id="t1"></select><div class="spec" id="s1"></div></div>
+        <div class="field" id="f2"><div class="thead-row"><label for="t2" data-i18n="t2"></label><label class="use"><input type="checkbox" id="u2" checked><span data-i18n="use"></span></label></div><select id="t2"></select><div class="spec" id="s2"></div></div>
+        <div class="field" id="f3"><div class="thead-row"><label for="t3" data-i18n="t3"></label><label class="use"><input type="checkbox" id="u3" checked><span data-i18n="use"></span></label></div><select id="t3"></select><div class="spec" id="s3"></div></div>
       </div>
       <div class="row2">
         <button type="button" class="btn" id="sameAll" data-i18n="same"></button>
@@ -172,13 +177,11 @@ const STR = {
   none:    ['なし', 'None'],
   sabir:   ['Sabir（抵抗 −50%）', 'Sabir (Resistance −50%)'],
   boremax: ['BoreMax（抵抗 +10%）', 'BoreMax (Resistance +10%)'],
-  hint:    ['レンタルの MOLE は3門とも Arbor MH2 です。1人で乗るときは砲塔1に座る想定です。',
-            'A rental MOLE has Arbor MH2 on all three turrets. Solo players are assumed to sit in Turret 1.'],
+  hint:    ['レンタルの MOLE は3門とも Arbor MH2 です。掘る人数に合わせて、人が座る砲塔だけ「使う」にチェックしてください。',
+            'A rental MOLE has Arbor MH2 on all three turrets. Check "Use" only on the turrets that will be crewed.'],
+  use:     ['使う', 'Use'],
   h2:      ['割れる最大質量', 'Max crackable mass'],
   res:     ['岩の抵抗', 'Rock resistance'],
-  c1:      ['1人（砲塔1）', '1 crew (T1)'],
-  c2:      ['2人（砲塔1+2）', '2 crew (T1+T2)'],
-  c3:      ['3人（全砲塔）', '3 crew (all)'],
   pow:     ['出力', 'Power'], resMod:['抵抗', 'Resist'], inst:['不安定性', 'Instability'],
   range:   ['最適射程', 'Optimal range'], slots:['モジュール枠', 'Module slots'],
   stock:   ['標準・レンタル', 'stock / rental'],
@@ -240,19 +243,37 @@ function render(){
   const g = parseFloat($('gadget').value) || 1;
   const gName = $('gadget').selectedOptions[0].textContent.replace(/[（(].*/, '').trim();
 
+  const used = [0,1,2].filter(i => $('u' + (i+1)).checked);
   TUR.forEach((id, i) => {
     const L = ls[i];
+    $('f' + (i+1)).classList.toggle('off', !used.includes(i));
     $('s' + (i+1)).innerHTML =
       `<span>${T('pow')} <b>${fmt(L.pow)}</b></span><span>${T('resMod')} <b>${pct(L.res)}</b></span>` +
       `<span>${T('inst')} <b>${pct(L.inst)}</b></span><span>${T('range')} <b>${L.range} m</b></span>`;
   });
-  const same = ls.every(l => l.id === ls[0].id);
-  const lasersTxt = same ? `<b>${ls[0].name}</b> ×3`
-    : ls.map((l, i) => `T${i+1} <b>${l.name}</b>`).join(' · ');
+  const uls = used.map(i => ls[i]);
+  const same = uls.every(l => l.id === uls[0].id);
+  const tn = idx => idx.map(i => i+1).join(lang === 'en' ? '+' : '・');
+  const lasersTxt = same
+    ? `<b>${uls[0].name}</b> ×${uls.length}` + (lang === 'en' ? ` (T${tn(used)})` : `（砲塔${tn(used)}）`)
+    : used.map(i => `T${i+1} <b>${ls[i].name}</b>`).join(' · ');
   $('sumtext').innerHTML = `${lasersTxt} · ${T('gadget')} ${gName}`;
 
-  const sets = [[ls[0]], [ls[0], ls[1]], ls];
-  let h = `<thead><tr><th>${T('res')}</th><th>${T('c1')}</th><th>${T('c2')}</th><th>${T('c3')}</th></tr></thead><tbody>`;
+  // 列：使う砲塔それぞれ単独（同じレーザーはまとめる）＋使う砲塔すべて同時
+  const cols = [];
+  const groups = [];
+  used.forEach(i => { const g = groups.find(x => x.id === ls[i].id); g ? g.idx.push(i) : groups.push({id: ls[i].id, idx: [i]}); });
+  if (used.length > 1 || groups.length === 1) groups.forEach(gp => {
+    const head = gp.idx.length === 1
+      ? (lang === 'en' ? `Turret ${gp.idx[0]+1} only` : `砲塔${gp.idx[0]+1}のみ`)
+      : (lang === 'en' ? `1 turret (T${tn(gp.idx)})` : `1門（砲塔${tn(gp.idx)}のどれか）`);
+    cols.push({head, sub: ls[gp.idx[0]].name, set: [ls[gp.idx[0]]]});
+  });
+  if (used.length > 1) cols.push({
+    head: lang === 'en' ? `${used.length} turrets together` : `${used.length}門同時`,
+    sub: lang === 'en' ? 'T' + tn(used) : '砲塔' + tn(used), set: uls});
+  const sets = cols.map(c => c.set);
+  let h = `<thead><tr><th>${T('res')}</th>` + cols.map(c => `<th>${c.head}<small>${c.sub}</small></th>`).join('') + '</tr></thead><tbody>';
   for (let rr=0; rr<=99; rr++){
     const vals = sets.map(s => maxMass(s, rr, g));
     if (vals.every(v => v <= 0)) break;
@@ -269,7 +290,7 @@ function render(){
   $('idx').innerHTML = ix;
   markIndex();
 
-  try { localStorage.setItem('moleCrack3', JSON.stringify({t: TUR.map(id => $(id).value), gadget: $('gadget').value, lang})); } catch(e){}
+  try { localStorage.setItem('moleCrack3', JSON.stringify({t: TUR.map(id => $(id).value), u: [1,2,3].map(n => $('u' + n).checked), gadget: $('gadget').value, lang})); } catch(e){}
 }
 
 // 表の枠で一番上に見えている行の区切りを、索引で強調
@@ -290,6 +311,11 @@ $('idx').addEventListener('click', ev => {
 });
 $('tblBox').addEventListener('scroll', markIndex, {passive:true});
 [...TUR, 'gadget'].forEach(id => $(id).addEventListener('change', render));
+// 使う砲塔：最後の1つは外せない
+[1,2,3].forEach(n => $('u' + n).addEventListener('change', ev => {
+  if (![1,2,3].some(k => $('u' + k).checked)) ev.target.checked = true;
+  render();
+}));
 $('sameAll').addEventListener('click', () => { $('t2').value = $('t1').value; $('t3').value = $('t1').value; render(); });
 document.querySelectorAll('.lang button').forEach(b => b.addEventListener('click', () => { lang = b.dataset.lang; applyLang(); }));
 $('settings').addEventListener('toggle', () => {
@@ -302,6 +328,7 @@ lang = saved && saved.lang ? saved.lang : (/^ja\b/i.test(navigator.language || '
 TUR.forEach(id => { $(id).innerHTML = LASERS.map(l => `<option value="${l.id}">${l.name}</option>`).join(''); });
 if (saved) {
   (saved.t || []).forEach((v, i) => { if (LASERS.some(l => l.id === v)) $(TUR[i]).value = v; });
+  if (Array.isArray(saved.u) && saved.u.some(Boolean)) saved.u.forEach((c, i) => { $('u' + (i+1)).checked = !!c; });
   if (saved.gadget) $('gadget').value = saved.gadget;
 }
 try { if (localStorage.getItem('moleCrackOpen') === '1') $('settings').open = true; } catch(e){}
