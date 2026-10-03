@@ -21,98 +21,83 @@ function scCount(){ var gc = window.goatcounter; if(!gc || !gc.url || gc.filter(
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;700&family=IBM+Plex+Sans+JP:wght@400;600&family=IBM+Plex+Mono:wght@400;600&display=swap">
 <style>
-/* 採掘スキャナのHUD：左に入力、右に判定。スマホでは縦積み */
+/* 上に折りたためる設定、その下に早見表（左に10%ごとの索引）。早見表が主役 */
 :root{
   --bg:#eef1f0; --panel:#ffffff; --fg:#1b2422; --muted:#5d6b68; --line:#cfd8d5;
-  --accent:#b8650a; --ok:#1f7a4d; --warn:#a86b00; --bad:#b3261e;
-  --ok-bg:#e3f3ea; --warn-bg:#fbf0d9; --bad-bg:#f9e2e0;
+  --accent:#b8650a; --band:#f4f7f6;
   --f-disp:"Chakra Petch",ui-sans-serif,system-ui,sans-serif;
   --f-body:"IBM Plex Sans JP","Hiragino Sans","Yu Gothic UI",system-ui,sans-serif;
   --f-mono:"IBM Plex Mono",ui-monospace,Consolas,monospace;
 }
 @media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
   --bg:#0f1514; --panel:#172120; --fg:#e4ecea; --muted:#8fa19d; --line:#2a3836;
-  --accent:#f0a040; --ok:#5cd394; --warn:#f2c14e; --bad:#ff7b72;
-  --ok-bg:#12301f; --warn-bg:#352a0e; --bad-bg:#3a1714; color-scheme:dark}}
+  --accent:#f0a040; --band:#1c2726; color-scheme:dark}}
 :root[data-theme="dark"]{
   --bg:#0f1514; --panel:#172120; --fg:#e4ecea; --muted:#8fa19d; --line:#2a3836;
-  --accent:#f0a040; --ok:#5cd394; --warn:#f2c14e; --bad:#ff7b72;
-  --ok-bg:#12301f; --warn-bg:#352a0e; --bad-bg:#3a1714; color-scheme:dark}
+  --accent:#f0a040; --band:#1c2726; color-scheme:dark}
 body{background:var(--bg);color:var(--fg);font-family:var(--f-body);font-size:15px;line-height:1.6}
-.wrap{max-width:960px;margin:0 auto;padding-inline:16px;padding-block:20px 40px;display:grid;gap:20px}
+.wrap{max-width:960px;margin:0 auto;padding-inline:16px;padding-block:20px 40px;display:grid;gap:16px}
 header h1{font-family:var(--f-disp);font-weight:700;font-size:1.7rem;letter-spacing:.04em;margin:0;text-wrap:balance}
 header p{margin:4px 0 0;color:var(--muted);font-size:.9rem}
-.grid{display:grid;grid-template-columns:1fr 1fr;gap:20px}
-@media (max-width:720px){.grid{grid-template-columns:1fr}}
-.panel{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:18px;display:grid;gap:14px;min-width:0}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:14px 18px;min-width:0}
 .label{font-family:var(--f-disp);font-size:.75rem;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
-.field{display:grid;gap:4px}
-.field input,.field select{font-family:var(--f-mono);font-size:1.5rem;padding:8px 10px;border:1px solid var(--line);border-radius:4px;background:var(--bg);color:var(--fg);width:100%;box-sizing:border-box}
-.field input:focus-visible,.field select:focus-visible,.seg button:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+
+/* 設定（折りたたみ） */
+.settings summary{cursor:pointer;display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 12px;list-style:none}
+.settings summary::-webkit-details-marker{display:none}
+.settings summary::before{content:"▸";color:var(--accent);font-size:.9rem;transition:transform .15s}
+.settings[open] summary::before{transform:rotate(90deg)}
+.settings summary:focus-visible{outline:2px solid var(--accent);outline-offset:4px;border-radius:2px}
+.sumtext{font-family:var(--f-mono);font-size:.9rem;min-width:0}
+.sumtext b{color:var(--accent);font-weight:600}
+.setbody{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:14px}
+@media (max-width:640px){.setbody{grid-template-columns:1fr}}
+.field{display:grid;gap:4px;align-content:start;min-width:0}
+.field select{font-family:var(--f-mono);font-size:1.05rem;padding:8px 10px;border:1px solid var(--line);border-radius:4px;background:var(--bg);color:var(--fg);width:100%;box-sizing:border-box}
+.field select:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
 .field small{color:var(--muted);font-size:.8rem}
-.seg{display:flex;gap:6px;flex-wrap:wrap}
-.seg button{flex:1;font-family:var(--f-disp);font-size:1rem;padding:8px 6px;border:1px solid var(--line);border-radius:4px;background:var(--bg);color:var(--fg);cursor:pointer;min-width:0}
-.seg button[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--panel)}
-details summary{cursor:pointer;color:var(--muted);font-size:.85rem}
-details .field{margin-top:10px}
-.verdict{border-radius:6px;padding:16px;display:grid;gap:4px}
-.verdict.ok{background:var(--ok-bg);color:var(--ok)}
-.verdict.warn{background:var(--warn-bg);color:var(--warn)}
-.verdict.bad{background:var(--bad-bg);color:var(--bad)}
-.verdict .big{font-family:var(--f-disp);font-weight:700;font-size:2rem;line-height:1.2}
-.verdict .sub{color:var(--fg);font-size:.92rem}
-.meter{height:10px;border-radius:5px;background:var(--line);position:relative;overflow:hidden}
-.meter i{position:absolute;inset:0 auto 0 0;background:currentColor;border-radius:5px}
-.meter b{position:absolute;top:-2px;bottom:-2px;width:2px;background:var(--fg);opacity:.55}
-dl{display:grid;grid-template-columns:auto 1fr;gap:6px 14px;margin:0;font-size:.92rem}
-dt{color:var(--muted)}
-dd{margin:0;font-family:var(--f-mono);text-align:right;font-variant-numeric:tabular-nums}
+.spec{grid-column:1/-1;display:flex;flex-wrap:wrap;gap:6px 18px;font-size:.85rem;color:var(--muted)}
+.spec span b{font-family:var(--f-mono);color:var(--fg);font-weight:600;font-variant-numeric:tabular-nums}
+
+/* 早見表 */
+.main{display:grid;gap:10px}
+.main h2{font-family:var(--f-disp);font-size:1.05rem;margin:0;letter-spacing:.03em}
+.main .how{margin:0;color:var(--muted);font-size:.85rem}
 .tblwrap{display:flex;gap:8px;align-items:flex-start}
 .idx{display:flex;flex-direction:column;gap:4px;position:sticky;top:env(safe-area-inset-top,0px)}
 .idx button{font-family:var(--f-mono);font-size:.85rem;font-variant-numeric:tabular-nums;padding:6px 8px;min-width:3.4em;border:1px solid var(--line);border-radius:4px;background:var(--bg);color:var(--fg);cursor:pointer;text-align:right}
 .idx button:hover{border-color:var(--accent)}
 .idx button:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
 .idx button[aria-current="true"]{background:var(--accent);border-color:var(--accent);color:var(--panel)}
-.tbl{flex:1;min-width:0;overflow:auto;max-height:44rem;border:1px solid var(--line);border-radius:4px}
-th{position:sticky;top:0;background:var(--panel)}
-table{border-collapse:collapse;width:100%;font-family:var(--f-mono);font-variant-numeric:tabular-nums;font-size:.9rem}
-th,td{padding:6px 10px;text-align:right;border-bottom:1px solid var(--line);white-space:nowrap}
-th{font-family:var(--f-disp);font-weight:500;color:var(--muted);font-size:.8rem;letter-spacing:.06em}
+.tbl{flex:1;min-width:0;overflow:auto;max-height:max(44rem, calc(100dvh - 32px));border:1px solid var(--line);border-radius:4px;background:var(--panel)}
+table{border-collapse:collapse;width:100%;font-family:var(--f-mono);font-variant-numeric:tabular-nums;font-size:.95rem}
+th,td{padding:6px 12px;text-align:right;border-bottom:1px solid var(--line);white-space:nowrap}
+th{position:sticky;top:0;background:var(--panel);font-family:var(--f-disp);font-weight:500;color:var(--muted);font-size:.8rem;letter-spacing:.06em}
 td:first-child,th:first-child{text-align:left}
-tr.hit td{background:var(--warn-bg)}
+tr.ten td{background:var(--band)}
+tr.ten td:first-child{color:var(--accent);font-weight:600}
+
 .notes{color:var(--muted);font-size:.85rem;margin:0;padding-left:1.2em;display:grid;gap:4px}
 .notes b{color:var(--fg);font-weight:600}
 footer{display:grid;gap:6px;border-top:1px solid var(--line);padding-top:14px;font-size:13px;color:var(--fg)}
 footer p{margin:0}
 footer a{color:var(--accent)}
-@media (prefers-reduced-motion:no-preference){.meter i{transition:width .2s}}
+@media (prefers-reduced-motion:reduce){.settings summary::before{transition:none}}
 </style>
 
 <div class="wrap">
   <header>
     <h1>MOLE 破砕判定</h1>
-    <p>スキャンに出る「質量」と「抵抗」を入れると、レンタルの MOLE（Arbor MH2 ×3）で割れるかを判定します。</p>
+    <p>スキャンした岩の抵抗の行を見て、質量が表の値以下なら割れます。列は同じ岩を照射するレーザーの数です。</p>
   </header>
 
-  <div class="grid">
-    <section class="panel" aria-label="スキャン値">
-      <div class="label">Scan</div>
+  <details class="panel settings" id="settings">
+    <summary><span class="label">設定</span><span class="sumtext" id="sumtext"></span></summary>
+    <div class="setbody">
       <div class="field">
-        <label for="mass">質量 Mass</label>
-        <input id="mass" type="number" inputmode="decimal" min="0" step="1" value="12500">
-      </div>
-      <div class="field">
-        <label for="res">抵抗 Resistance（%）</label>
-        <input id="res" type="number" inputmode="decimal" min="0" max="99" step="1" value="30">
-      </div>
-      <div class="field">
-        <span id="headsLbl">照射するレーザー数（乗っている砲手の人数）</span>
-        <div class="seg" role="group" aria-labelledby="headsLbl" id="heads">
-          <button type="button" data-v="1" aria-pressed="true">1門</button>
-          <button type="button" data-v="2" aria-pressed="false">2門</button>
-          <button type="button" data-v="3" aria-pressed="false">3門</button>
-        </div>
-        <small>1人で乗るときは1門です（操縦席からはレーザーを撃てません）。</small>
+        <label for="laser">レーザーの種類（サイズ2）</label>
+        <select id="laser"></select>
+        <small>レンタルの MOLE は Arbor MH2 です。3門とも同じレーザーとして計算します。</small>
       </div>
       <div class="field">
         <label for="gadget">ガジェット</label>
@@ -122,154 +107,112 @@ footer a{color:var(--accent)}
           <option value="1.1">BoreMax（抵抗 +10%）</option>
         </select>
       </div>
-      <details>
-        <summary>レーザーの値（パッチで変わったら直す）</summary>
-        <div class="field">
-          <label for="pow">1門あたりの最大出力</label>
-          <input id="pow" type="number" inputmode="decimal" min="1" step="10" value="2900">
-          <small>Arbor MH2 は 2,900（4.10.1 時点）</small>
-        </div>
-        <div class="field">
-          <label for="lres">レーザーの抵抗補正（%）</label>
-          <input id="lres" type="number" inputmode="decimal" step="1" value="25">
-          <small>Arbor MH2 は +25%（岩の抵抗が 1.25 倍に効く）</small>
-        </div>
-      </details>
-    </section>
+      <div class="spec" id="spec"></div>
+    </div>
+  </details>
 
-    <section class="panel" aria-live="polite" aria-label="判定">
-      <div class="label">Verdict</div>
-      <div class="verdict" id="verdict">
-        <div class="big" id="vBig">—</div>
-        <div class="sub" id="vSub"></div>
-        <div class="meter" aria-hidden="true"><i id="mFill"></i><b id="mMark"></b></div>
-      </div>
-      <dl>
-        <dt>実効抵抗</dt><dd id="oRes">—</dd>
-        <dt>必要な出力</dt><dd id="oReq">—</dd>
-        <dt>出せる出力</dt><dd id="oPow">—</dd>
-        <dt>出力の余裕</dt><dd id="oRatio">—</dd>
-        <dt>必要な門数</dt><dd id="oNeed">—</dd>
-        <dt>この抵抗で割れる最大質量</dt><dd id="oMax">—</dd>
-      </dl>
-    </section>
-  </div>
-
-  <section class="panel" aria-label="早見表">
-    <div class="label">早見表：割れる最大質量（抵抗1%ごと・現在のガジェット設定）</div>
+  <section class="main" aria-label="早見表">
+    <h2>割れる最大質量</h2>
     <div class="tblwrap">
       <nav class="idx" id="idx" aria-label="抵抗の行へ移動"></nav>
-      <div class="tbl"><table id="tbl"></table></div>
+      <div class="tbl" id="tblBox"><table id="tbl"></table></div>
     </div>
   </section>
 
   <ul class="notes">
-    <li><b>計算式</b>：必要出力 = 質量 ÷ (1 − 実効抵抗) ÷ 5。実効抵抗 = 岩の抵抗 × 1.25（MH2）× ガジェット。CIG 非公開のため、コミュニティが実測で出した近似です。</li>
-    <li><b>余裕 115% 以上</b>なら安定して割れます。100〜115% はチャージを最大近くまで上げれば割れますが、不安定な岩だと難しくなります。</li>
-    <li>複数門の出力は足し算です。割れない岩でも、2〜3人で同じ岩を同時に照射すれば割れることがあります。</li>
-    <li>最適射程（MH2 は約 90 m）の外では出力が落ちます。判定どおりにならないときは近づいてください。</li>
+    <li><b>計算式</b>：必要出力 = 質量 ÷ (1 − 実効抵抗) ÷ 5。実効抵抗 = 岩の抵抗 × レーザーの抵抗補正 × ガジェット。CIG 非公開のため、コミュニティが実測で出した近似です。</li>
+    <li>表の値ちょうどの岩は、チャージを最大近くまで上げてようやく割れます。不安定な岩は、表の値より1〜2割軽いものを選ぶと安全です。</li>
+    <li>複数門の出力は足し算です。1人で乗るときは1門です（操縦席からはレーザーを撃てません）。</li>
+    <li>最適射程の外では出力が落ちます。判定どおりにならないときは近づいてください。</li>
     <li>レーザーモジュールは計算に入れていません。出力が上がるモジュールを積めば、表の値より少し重い岩も割れます。</li>
   </ul>
 
   <footer>
     <p>This is an unofficial Star Citizen fan site, not affiliated with the Cloud Imperium group of companies. All content on this site not authored by its host or users are property of their respective owners. 非公式のファンサイトで、Cloud Imperium とは関係ありません。 <a href="https://robertsspaceindustries.com/" target="_blank" rel="noopener">公式サイト（RSI）</a></p>
-    <p>レーザーの値: <a href="https://starcitizen.tools/Arbor_MH2_Mining_Laser" target="_blank" rel="noopener">Star Citizen Wiki</a>（4.10.1）。計算式: <a href="https://uverse.space/mining/fracture" target="_blank" rel="noopener">UVerse</a> ほかコミュニティの実測。</p>
+    <p>レーザーの値: <a href="https://api.star-citizen.wiki/" target="_blank" rel="noopener">Star Citizen Wiki API</a>（4.10.1）。計算式: <a href="https://uverse.space/mining/fracture" target="_blank" rel="noopener">UVerse</a> ほかコミュニティの実測。</p>
   </footer>
 </div>
 
 <script>
+// サイズ2の採掘レーザー（Star Citizen Wiki API、4.10.1-LIVE）。res = 抵抗補正（%）、inst = 不安定性補正（%）、range = 最適射程（m）
+const LASERS = [
+  {id:'arbor',    name:'Arbor MH2',    note:'標準・レンタル', pow:2900, res: 25, inst:-35, range:90, slots:2},
+  {id:'helix',    name:'Helix II',     pow:4930, res:-30, inst:  0, range:30, slots:3},
+  {id:'hofstede', name:'Hofstede-S2',  pow:4060, res:-30, inst: 10, range:60, slots:2},
+  {id:'impact',   name:'Impact II',    pow:4060, res: 10, inst:-10, range:60, slots:3},
+  {id:'klein',    name:'Klein-S2',     pow:4350, res:-45, inst: 35, range:60, slots:1},
+  {id:'lancet',   name:'Lancet MH2',   pow:4350, res:  0, inst:-10, range:45, slots:2},
+];
 const $ = id => document.getElementById(id);
 const fmt = n => Math.round(n).toLocaleString('ja-JP');
-let heads = 1;
+const pct = n => (n > 0 ? '+' : n < 0 ? '−' : '±') + Math.abs(n) + '%';
+
+$('laser').innerHTML = LASERS.map(l =>
+  `<option value="${l.id}">${l.name}${l.note ? '（' + l.note + '）' : ''}</option>`).join('');
 
 function effRes(rockRes, lres, gadget){ return rockRes * (1 + lres/100) * gadget; }
-function required(mass, eff){ return eff >= 100 ? Infinity : mass / (1 - eff/100) / 5; }
 function maxMass(power, eff){ return eff >= 100 ? 0 : power * 5 * (1 - eff/100); }
 
-function read(){
-  return {
-    mass: parseFloat($('mass').value) || 0,
-    res: parseFloat($('res').value) || 0,
-    gadget: parseFloat($('gadget').value) || 1,
-    pow: parseFloat($('pow').value) || 2900,
-    lres: parseFloat($('lres').value) || 0,
-  };
-}
-
 function render(){
-  const v = read();
-  const eff = effRes(v.res, v.lres, v.gadget);
-  const req = required(v.mass, eff);
-  const power = v.pow * heads;
-  const ratio = power / req;
-  const need = Math.ceil(req / v.pow);
+  const L = LASERS.find(l => l.id === $('laser').value) || LASERS[0];
+  const g = parseFloat($('gadget').value) || 1;
+  const gName = $('gadget').selectedOptions[0].textContent.replace(/（.*/, '');
 
-  const box = $('verdict');
-  let cls, big, sub;
-  if (v.mass <= 0) { cls='warn'; big='質量を入力'; sub='スキャナに出る Mass の値を入れてください。'; }
-  else if (ratio >= 1.15) { cls='ok'; big='割れる'; sub=`${heads}門で十分な出力があります。`; }
-  else if (ratio >= 1.0) { cls='warn'; big='ぎりぎり割れる'; sub='チャージを最大近くまで上げれば割れます。不安定な岩なら1門増やすと安全です。'; }
-  else if (need <= 3) { cls='bad'; big=`${heads}門では割れない`; sub=`${need}門あれば割れます${need>heads?'。砲手を増やしてください':''}。`; }
-  else { cls='bad'; big='MOLE では割れない'; sub = v.gadget===1 ? '3門でも足りません。Sabir を付けるか、別の岩を探してください。' : '3門でも足りません。別の岩を探してください。'; }
-  box.className = 'verdict ' + cls;
-  $('vBig').textContent = big;
-  $('vSub').textContent = sub;
+  $('sumtext').innerHTML = `<b>${L.name}</b> · 出力 ${fmt(L.pow)}/門 · 抵抗 ${pct(L.res)} · ガジェット ${gName}`;
+  $('spec').innerHTML =
+    `<span>最大出力 <b>${fmt(L.pow)}</b></span>` +
+    `<span>抵抗補正 <b>${pct(L.res)}</b></span>` +
+    `<span>不安定性 <b>${pct(L.inst)}</b></span>` +
+    `<span>最適射程 <b>${L.range} m</b></span>` +
+    `<span>モジュール枠 <b>${L.slots}</b></span>`;
 
-  // メーター：右端 = 必要出力の 150%、縦線 = 100%
-  const r = isFinite(ratio) ? ratio : 0;
-  $('mFill').style.width = Math.min(r/1.5, 1)*100 + '%';
-  $('mMark').style.left = (1/1.5)*100 + '%';
-
-  $('oRes').textContent = eff >= 100 ? '100% 以上' : eff.toFixed(1) + '%';
-  $('oReq').textContent = isFinite(req) ? fmt(req) : '割れない';
-  $('oPow').textContent = fmt(power) + `（${heads}門）`;
-  $('oRatio').textContent = isFinite(req) && v.mass>0 ? Math.round(ratio*100) + '%' : '—';
-  $('oNeed').textContent = !isFinite(req) ? '—' : need <= 3 ? need + '門' : need + '門（MOLE は最大3門）';
-  $('oMax').textContent = fmt(maxMass(power, eff));
-
-  // 早見表
   let h = '<thead><tr><th>岩の抵抗</th><th>1門</th><th>2門</th><th>3門</th></tr></thead><tbody>';
-  const near = Math.round(v.res);
   for (let rr=0; rr<=99; rr++){
-    const e = effRes(rr, v.lres, v.gadget);
+    const e = effRes(rr, L.res, g);
     if (e >= 100) break;
-    h += `<tr data-r="${rr}"${rr===near?' class="hit" id="hitRow"':''}><td>${rr}%</td>` +
-      [1,2,3].map(n=>`<td>${fmt(maxMass(v.pow*n, e))}</td>`).join('') + '</tr>';
+    h += `<tr data-r="${rr}"${rr%10===0?' class="ten"':''}><td>${rr}%</td>` +
+      [1,2,3].map(n=>`<td>${fmt(maxMass(L.pow*n, e))}</td>`).join('') + '</tr>';
   }
   $('tbl').innerHTML = h + '</tbody>';
-  // 入力した抵抗の行を表の枠の中央へ（ページ自体はスクロールしない）
-  const row = $('hitRow'), tblBox = $('tbl').parentElement;
-  if (row) tblBox.scrollTop = row.offsetTop - tblBox.clientHeight/2 + row.offsetHeight/2;
 
-  // 左の索引：10%ごと。入力した抵抗を含む区切りを強調
-  const rows = $('tbl').tBodies[0].rows.length, cur = Math.floor(near/10)*10;
+  const rows = $('tbl').tBodies[0].rows.length;
   let ix = '';
-  for (let rr=0; rr<rows; rr+=10) ix += `<button type="button" data-r="${rr}" aria-current="${rr===cur}">${rr}%</button>`;
+  for (let rr=0; rr<rows; rr+=10) ix += `<button type="button" data-r="${rr}">${rr}%</button>`;
   $('idx').innerHTML = ix;
+  markIndex();
 
-  try { localStorage.setItem('moleCrack', JSON.stringify({...v, heads})); } catch(e){}
+  try { localStorage.setItem('moleCrack2', JSON.stringify({laser:L.id, gadget:$('gadget').value})); } catch(e){}
+}
+
+// 表の枠で一番上に見えている行の区切りを、索引で強調
+function markIndex(){
+  const box = $('tblBox'), t = $('tbl');
+  const top = box.scrollTop + (t.tHead ? t.tHead.offsetHeight : 0);
+  let cur = 0;
+  for (const r of t.tBodies[0].rows) { if (r.offsetTop + r.offsetHeight/2 > top) { cur = +r.dataset.r; break; } }
+  const sec = Math.floor(cur/10)*10;
+  $('idx').querySelectorAll('button').forEach(b => b.setAttribute('aria-current', +b.dataset.r === sec));
 }
 
 // 索引をクリックすると、その抵抗の行を表の枠の一番上へ
 $('idx').addEventListener('click', ev => {
   const b = ev.target.closest('button'); if (!b) return;
   const t = $('tbl'), row = t.querySelector(`tr[data-r="${b.dataset.r}"]`); if (!row) return;
-  t.parentElement.scrollTop = row.offsetTop - t.tHead.offsetHeight;
+  $('tblBox').scrollTop = row.offsetTop - t.tHead.offsetHeight;
+});
+$('tblBox').addEventListener('scroll', markIndex, {passive:true});
+['laser','gadget'].forEach(id => $(id).addEventListener('change', render));
+$('settings').addEventListener('toggle', () => {
+  try { localStorage.setItem('moleCrackOpen', $('settings').open ? '1' : '0'); } catch(e){}
 });
 
-document.querySelectorAll('#heads button').forEach(b => b.addEventListener('click', () => {
-  heads = +b.dataset.v;
-  document.querySelectorAll('#heads button').forEach(x => x.setAttribute('aria-pressed', x===b));
-  render();
-}));
-['mass','res','gadget','pow','lres'].forEach(id => $(id).addEventListener('input', render));
-
 try {
-  const s = JSON.parse(localStorage.getItem('moleCrack') || 'null');
+  const s = JSON.parse(localStorage.getItem('moleCrack2') || 'null');
   if (s) {
-    ['mass','res','gadget','pow','lres'].forEach(k => { if (s[k] != null) $(k).value = s[k]; });
-    if (s.heads) { heads = s.heads; document.querySelectorAll('#heads button').forEach(x => x.setAttribute('aria-pressed', +x.dataset.v===heads)); }
+    if (LASERS.some(l => l.id === s.laser)) $('laser').value = s.laser;
+    if (s.gadget) $('gadget').value = s.gadget;
   }
+  if (localStorage.getItem('moleCrackOpen') === '1') $('settings').open = true;
 } catch(e){}
 render();
 </script>
