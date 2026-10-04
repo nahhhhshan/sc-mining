@@ -93,9 +93,13 @@ th small{display:block;font-family:var(--f-mono);font-size:.72rem;letter-spacing
 .use{display:flex;align-items:center;gap:6px;font-size:.85rem;cursor:pointer;user-select:none}
 .use input{width:1.1rem;height:1.1rem;accent-color:var(--accent);margin:0;cursor:pointer}
 .field.off select,.field.off .spec{opacity:.45}
-td:first-child,th:first-child{text-align:left}
+th.grp{text-align:center;color:var(--fg);border-bottom:0;padding-bottom:0}
+th.grp small{display:inline;margin-left:6px}
+.gs{border-left:2px solid var(--line)}
+td.rv{color:var(--muted)}
+td.rv.key{color:var(--fg)}
 tr.ten td{background:var(--band)}
-tr.ten td:first-child{color:var(--accent);font-weight:600}
+tr.ten td.key{color:var(--accent);font-weight:600}
 
 .notes{color:var(--muted);font-size:.85rem;margin:0;padding-left:1.2em;display:grid;gap:4px}
 .notes b{color:var(--fg);font-weight:600}
@@ -165,8 +169,8 @@ const LASERS = [
 // 文言：[日本語, English]
 const STR = {
   title:   ['MOLE 破砕判定', 'MOLE Rock Breaker'],
-  lead:    ['スキャンした岩の耐性の行を見て、質量が表の値以下なら割れます。列は同じ岩を照射する砲塔の組み合わせです。',
-            'Find the row for the scanned rock\'s resistance. If its mass is at or below the value, you can crack it. Columns are the turrets firing on the same rock.'],
+  lead:    ['スキャンした岩の耐性の行を見て、質量が質量上限以下なら割れます。1人で照射したときと、2人で照射したときの耐性を並べています。',
+            'Find the row for the scanned rock\'s resistance. If its mass is at or below the max mass, you can crack it. Resistance with 1 turret and with 2+ turrets firing are shown side by side.'],
   settings:['設定', 'Setup'],
   t1:      ['砲塔1', 'Turret 1'], t2:['砲塔2', 'Turret 2'], t3:['砲塔3', 'Turret 3'],
   same:    ['全砲塔を砲塔1と同じにする', 'Set all turrets to Turret 1'],
@@ -174,8 +178,9 @@ const STR = {
             'A rental MOLE has Arbor MH2 on all three turrets. Check "Use" only on the turrets that will be crewed.'],
   use:     ['使う', 'Use'],
   resLive: ['耐性', 'Resistance (scan)'],
-  nLive:   ['スキャナの耐性は、いま照射しているレーザーとガジェットの補正が入った値です。掘るときと同じ門数で照射しながら耐性を読み、その門数の列で見てください。',
-            'The scanner shows resistance with the modifiers of the lasers and gadget currently on the rock. Read it while firing with the same turrets you will use, then check that column.'],
+  nLive:   ['スキャナの耐性は、照射しているレーザーの補正込みの値なので、1人と2人で変わります。いま照射している人数の「耐性」の列で、見えている値の行を探してください。同じ行の質量上限以下なら割れます。2人以上の耐性は、1人の値からレーザーの耐性補正で計算した推定値です。',
+            'The scanned resistance includes the modifiers of the lasers on the rock, so it differs with 1 or 2 crew. Find the value you see in the Resistance column for the number of turrets firing. If the mass is at or below the limit on that row, you can crack it. Values for 2+ turrets are estimated from the 1-turret value using the laser resistance modifiers.'],
+  massLim: ['質量上限', 'Max mass'],
   h2:      ['割れる最大質量', 'Max crackable mass'],
   res:     ['岩の耐性', 'Rock resistance'],
   pow:     ['出力', 'Power'], resMod:['耐性', 'Resist'], inst:['不安定性', 'Instability'],
@@ -260,24 +265,32 @@ function render(){
   used.forEach(i => { const g = groups.find(x => x.id === ls[i].id); g ? g.idx.push(i) : groups.push({id: ls[i].id, idx: [i]}); });
   if (used.length > 1 || groups.length === 1) groups.forEach(gp => {
     const head = gp.idx.length === 1
-      ? (lang === 'en' ? `Turret ${gp.idx[0]+1} only` : `砲塔${gp.idx[0]+1}のみ`)
-      : (lang === 'en' ? `1 turret (T${tn(gp.idx)})` : `1門（砲塔${tn(gp.idx)}のどれか）`);
+      ? (lang === 'en' ? `1 crew (T${gp.idx[0]+1})` : `1人（砲塔${gp.idx[0]+1}）`)
+      : (lang === 'en' ? `1 crew (T${tn(gp.idx)})` : `1人（砲塔${tn(gp.idx)}のどれか）`);
     cols.push({head, sub: ls[gp.idx[0]].name, set: [ls[gp.idx[0]]]});
   });
   if (used.length > 1) cols.push({
-    head: lang === 'en' ? `${used.length} turrets together` : `${used.length}門同時`,
-    sub: lang === 'en' ? 'T' + tn(used) : '砲塔' + tn(used), set: uls});
-  const sets = cols.map(c => c.set);
-  let h = `<thead><tr><th>${T('resLive')}</th>` + cols.map(c => `<th>${c.head}<small>${c.sub}</small></th>`).join('') + '</tr></thead><tbody>';
+    head: lang === 'en' ? `${used.length} crew (T${tn(used)})` : `${used.length}人（砲塔${tn(used)}）`,
+    sub: same ? uls[0].name : '', set: uls});
+  // 各列の耐性補正の倍率（照射中のレーザーの補正の掛け算）。1列目の耐性を1%刻みにし、同じ岩の他の列の耐性を推定する
+  cols.forEach(c => { c.m = c.set.reduce((m, l) => m * (1 + l.res/100), 1); });
+  const m0 = cols[0].m;
+  let h = '<thead><tr>' + cols.map((c, i) => `<th colspan="2" class="grp${i ? ' gs' : ''}">${c.head}${c.sub ? `<small>${c.sub}</small>` : ''}</th>`).join('') + '</tr><tr>' +
+    cols.map((c, i) => `<th class="${i ? 'gs' : ''}">${T('resLive')}</th><th>${T('massLim')}</th>`).join('') + '</tr></thead><tbody>';
   for (let rr=0; rr<=99; rr++){
-    const vals = sets.map(s => maxMass(s, rr));
-    if (vals.every(v => v <= 0)) break;
-    h += `<tr data-r="${rr}"${rr%10===0?' class="ten"':''}><td>${rr}%</td>` +
-      vals.map(v => `<td>${v > 0 ? fmt(v) : '—'}</td>`).join('') + '</tr>';
+    const base = rr / m0;
+    h += `<tr data-r="${rr}"${rr%10===0?' class="ten"':''}>` + cols.map((c, i) => {
+      const r = i === 0 ? rr : base * c.m;
+      const v = maxMass(c.set, r);
+      return `<td class="rv${i ? ' gs' : ' key'}">${r < 100 ? Math.round(r) + '%' : '—'}</td><td>${v > 0 ? fmt(v) : '—'}</td>`;
+    }).join('') + '</tr>';
   }
   const keep = $('tblBox').scrollTop;
   $('tbl').innerHTML = h + '</tbody>';
   $('tblBox').scrollTop = keep;
+  // 見出し2段目を1段目の下に固定
+  const hr = $('tbl').tHead.rows;
+  [...hr[1].cells].forEach(c => { c.style.top = hr[0].offsetHeight + 'px'; });
 
   const rows = $('tbl').tBodies[0].rows.length;
   let ix = '';
