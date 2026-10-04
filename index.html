@@ -77,11 +77,6 @@ header p{margin:4px 0 0;color:var(--muted);font-size:.9rem}
 .main{display:grid;gap:10px}
 .main h2{font-family:var(--f-disp);font-size:1.05rem;margin:0;letter-spacing:.03em}
 .mainhead{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:8px 16px}
-.basis{display:flex;flex-wrap:wrap;border:1px solid var(--line);border-radius:4px;overflow:hidden;background:var(--panel)}
-.basis button{font-family:var(--f-body);font-size:.85rem;padding:6px 12px;border:0;background:transparent;color:var(--fg);cursor:pointer}
-.basis button+button{border-left:1px solid var(--line)}
-.basis button[aria-pressed="true"]{background:var(--accent);color:var(--panel)}
-.basis button:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
 .basisnote{margin:0;color:var(--muted);font-size:.82rem}
 .tblwrap{display:flex;gap:8px;align-items:flex-start}
 .idx{display:flex;flex-direction:column;gap:4px;position:sticky;top:env(safe-area-inset-top,0px)}
@@ -132,14 +127,6 @@ footer a{color:var(--accent)}
       </div>
       <div class="row2">
         <button type="button" class="btn" id="sameAll" data-i18n="same"></button>
-        <div class="field">
-          <label for="gadget" data-i18n="gadget"></label>
-          <select id="gadget">
-            <option value="1" data-i18n="none"></option>
-            <option value="0.5" data-i18n="sabir"></option>
-            <option value="1.1" data-i18n="boremax"></option>
-          </select>
-        </div>
       </div>
       <p class="hint" data-i18n="hint"></p>
     </div>
@@ -148,12 +135,8 @@ footer a{color:var(--accent)}
   <section class="main" aria-labelledby="h2">
     <div class="mainhead">
       <h2 id="h2" data-i18n="h2"></h2>
-      <div class="basis" role="group" id="basis">
-        <button type="button" data-b="live" data-i18n="bLive"></button>
-        <button type="button" data-b="base" data-i18n="bBase"></button>
-      </div>
     </div>
-    <p class="basisnote" id="basisnote"></p>
+    <p class="basisnote" data-i18n="nLive"></p>
     <div class="tblwrap">
       <nav class="idx" id="idx"></nav>
       <div class="tbl" id="tblBox"><table id="tbl"></table></div>
@@ -187,22 +170,12 @@ const STR = {
   settings:['設定', 'Setup'],
   t1:      ['砲塔1', 'Turret 1'], t2:['砲塔2', 'Turret 2'], t3:['砲塔3', 'Turret 3'],
   same:    ['全砲塔を砲塔1と同じにする', 'Set all turrets to Turret 1'],
-  gadget:  ['ガジェット', 'Gadget'],
-  none:    ['なし', 'None'],
-  sabir:   ['Sabir（抵抗 −50%）', 'Sabir (Resistance −50%)'],
-  boremax: ['BoreMax（抵抗 +10%）', 'BoreMax (Resistance +10%)'],
   hint:    ['レンタルの MOLE は3門とも Arbor MH2 です。掘る人数に合わせて、人が座る砲塔だけ「使う」にチェックしてください。',
             'A rental MOLE has Arbor MH2 on all three turrets. Check "Use" only on the turrets that will be crewed.'],
   use:     ['使う', 'Use'],
-  resLive: ['照射中の抵抗', 'Live resist.'],
-  resBase: ['元の抵抗', 'Original resist.'],
-  basisLbl:['どの抵抗の値で表を引くか', 'Which resistance value to look up'],
-  bLive:   ['照射中の抵抗（左の数字）', 'Live resistance (left number)'],
-  bBase:   ['元の抵抗（右の数字）', 'Original resistance (right number)'],
-  nLive:   ['スキャナの左の数字は、いま照射しているレーザー（とガジェット）の補正込みの値です。1門で照射しているときは1門の列、2門同時なら同時の列で、そのとき見えている値の行を見てください。',
-            'The left number on the scanner already includes the modifiers of the lasers (and gadget) currently on the rock. Use the column that matches how many turrets are firing, and the row for the value you see at that moment.'],
-  nBase:   ['スキャナの右の数字（岩の元の抵抗）で引きます。各列のレーザーの補正とガジェットは表のほうで計算します。',
-            'Look up by the right number (the rock\'s original resistance). Each column\'s laser modifiers and the gadget are applied by the table.'],
+  resLive: ['抵抗（スキャナ）', 'Resistance (scan)'],
+  nLive:   ['スキャナの抵抗は、いま照射しているレーザーとガジェットの補正が入った値です。掘るときと同じ門数で照射しながら抵抗を読み、その門数の列で見てください。',
+            'The scanner shows resistance with the modifiers of the lasers and gadget currently on the rock. Read it while firing with the same turrets you will use, then check that column.'],
   h2:      ['割れる最大質量', 'Max crackable mass'],
   res:     ['岩の抵抗', 'Rock resistance'],
   pow:     ['出力', 'Power'], resMod:['抵抗', 'Resist'], inst:['不安定性', 'Instability'],
@@ -215,13 +188,13 @@ const STR = {
   credit:  ['レーザーの値: <a href="https://api.star-citizen.wiki/" target="_blank" rel="noopener">Star Citizen Wiki API</a>（4.10.1）。計算式: <a href="https://uverse.space/mining/fracture" target="_blank" rel="noopener">UVerse</a> ほかコミュニティの実測。',
             'Laser stats: <a href="https://api.star-citizen.wiki/" target="_blank" rel="noopener">Star Citizen Wiki API</a> (4.10.1). Formula: <a href="https://uverse.space/mining/fracture" target="_blank" rel="noopener">UVerse</a> and other community testing.'],
   notes: [[
-    '<b>計算式</b>：必要出力 = 質量 ÷ (1 − 実効抵抗) ÷ 5。出力は照射中のレーザーの合計。実効抵抗 = 岩の元の抵抗 × 照射中の各レーザーの抵抗補正（掛け算）× ガジェットで、スキャナの左の数字がこれにあたります。CIG 非公開のため、コミュニティが実測で出した近似です。',
+    '<b>計算式</b>：割れる最大質量 = 照射中のレーザーの出力の合計 × 5 × (1 − スキャナの抵抗)。CIG 非公開のため、コミュニティが実測で出した近似です。',
     '表の値ちょうどの岩は、チャージを最大近くまで上げてようやく割れます。不安定な岩は、表の値より1〜2割軽いものを選ぶと安全です。',
     '操縦席からはレーザーを撃てません。砲塔ごとに1人ずつ必要です。',
     '最適射程の外では出力が落ちます。判定どおりにならないときは近づいてください。',
     'レーザーモジュールは計算に入れていません。出力が上がるモジュールを積めば、表の値より少し重い岩も割れます。',
   ], [
-    '<b>Formula</b>: required power = mass ÷ (1 − effective resistance) ÷ 5. Power is the sum of the active lasers. Effective resistance = original rock resistance × each active laser\'s resistance modifier (multiplied) × gadget; this is the left number on the scanner. CIG has not published this; it is a community estimate from testing.',
+    '<b>Formula</b>: max crackable mass = total power of the firing lasers × 5 × (1 − scanned resistance). CIG has not published this; it is a community estimate from testing.',
     'A rock right at the limit cracks only near full throttle. For unstable rocks, pick ones 10–20% lighter than the value.',
     'The pilot seat has no mining laser. Each turret needs its own crew member.',
     'Power drops outside optimal range. Move closer if a rock does not crack as expected.',
@@ -237,11 +210,10 @@ const pct = n => (n > 0 ? '+' : n < 0 ? '−' : '±') + Math.abs(n) + '%';
 const TUR = ['t1','t2','t3'];
 const laserOf = id => LASERS.find(l => l.id === $(id).value) || LASERS[0];
 
-let basis = 'live';
-function maxMass(lasers, rockRes, gadget){
+function maxMass(lasers, rockRes){
   const power = lasers.reduce((s, l) => s + l.pow, 0);
-  // live：表示値はすでに補正込みなので、そのまま使う
-  const eff = basis === 'live' ? rockRes : rockRes * lasers.reduce((m, l) => m * (1 + l.res/100), 1) * gadget;
+  // スキャナの抵抗はすでにレーザー・ガジェットの補正込みなので、そのまま使う
+  const eff = rockRes;
   return eff >= 100 ? 0 : power * 5 * (1 - eff/100);
 }
 
@@ -264,12 +236,7 @@ function applyLang(){
 }
 
 function render(){
-  document.querySelectorAll('#basis button').forEach(b => b.setAttribute('aria-pressed', b.dataset.b === basis));
-  $('basis').setAttribute('aria-label', T('basisLbl'));
-  $('basisnote').textContent = T(basis === 'live' ? 'nLive' : 'nBase');
   const ls = TUR.map(laserOf);
-  const g = parseFloat($('gadget').value) || 1;
-  const gName = $('gadget').selectedOptions[0].textContent.replace(/[（(].*/, '').trim();
 
   const used = [0,1,2].filter(i => $('u' + (i+1)).checked);
   TUR.forEach((id, i) => {
@@ -285,7 +252,7 @@ function render(){
   const lasersTxt = same
     ? `<b>${uls[0].name}</b> ×${uls.length}` + (lang === 'en' ? ` (T${tn(used)})` : `（砲塔${tn(used)}）`)
     : used.map(i => `T${i+1} <b>${ls[i].name}</b>`).join(' · ');
-  $('sumtext').innerHTML = `${lasersTxt} · ${T('gadget')} ${gName}`;
+  $('sumtext').innerHTML = lasersTxt;
 
   // 列：使う砲塔それぞれ単独（同じレーザーはまとめる）＋使う砲塔すべて同時
   const cols = [];
@@ -301,9 +268,9 @@ function render(){
     head: lang === 'en' ? `${used.length} turrets together` : `${used.length}門同時`,
     sub: lang === 'en' ? 'T' + tn(used) : '砲塔' + tn(used), set: uls});
   const sets = cols.map(c => c.set);
-  let h = `<thead><tr><th>${T(basis === 'live' ? 'resLive' : 'resBase')}</th>` + cols.map(c => `<th>${c.head}<small>${c.sub}</small></th>`).join('') + '</tr></thead><tbody>';
+  let h = `<thead><tr><th>${T('resLive')}</th>` + cols.map(c => `<th>${c.head}<small>${c.sub}</small></th>`).join('') + '</tr></thead><tbody>';
   for (let rr=0; rr<=99; rr++){
-    const vals = sets.map(s => maxMass(s, rr, g));
+    const vals = sets.map(s => maxMass(s, rr));
     if (vals.every(v => v <= 0)) break;
     h += `<tr data-r="${rr}"${rr%10===0?' class="ten"':''}><td>${rr}%</td>` +
       vals.map(v => `<td>${v > 0 ? fmt(v) : '—'}</td>`).join('') + '</tr>';
@@ -318,7 +285,7 @@ function render(){
   $('idx').innerHTML = ix;
   markIndex();
 
-  try { localStorage.setItem('moleCrack3', JSON.stringify({t: TUR.map(id => $(id).value), u: [1,2,3].map(n => $('u' + n).checked), gadget: $('gadget').value, lang, basis})); } catch(e){}
+  try { localStorage.setItem('moleCrack3', JSON.stringify({t: TUR.map(id => $(id).value), u: [1,2,3].map(n => $('u' + n).checked), lang})); } catch(e){}
 }
 
 // 表の枠で一番上に見えている行の区切りを、索引で強調
@@ -338,13 +305,12 @@ $('idx').addEventListener('click', ev => {
   $('tblBox').scrollTop = row.offsetTop - t.tHead.offsetHeight;
 });
 $('tblBox').addEventListener('scroll', markIndex, {passive:true});
-[...TUR, 'gadget'].forEach(id => $(id).addEventListener('change', render));
+TUR.forEach(id => $(id).addEventListener('change', render));
 // 使う砲塔：最後の1つは外せない
 [1,2,3].forEach(n => $('u' + n).addEventListener('change', ev => {
   if (![1,2,3].some(k => $('u' + k).checked)) ev.target.checked = true;
   render();
 }));
-document.querySelectorAll('#basis button').forEach(b => b.addEventListener('click', () => { basis = b.dataset.b; render(); }));
 $('sameAll').addEventListener('click', () => { $('t2').value = $('t1').value; $('t3').value = $('t1').value; render(); });
 document.querySelectorAll('.lang button').forEach(b => b.addEventListener('click', () => { lang = b.dataset.lang; applyLang(); }));
 $('settings').addEventListener('toggle', () => {
@@ -358,8 +324,6 @@ TUR.forEach(id => { $(id).innerHTML = LASERS.map(l => `<option value="${l.id}">$
 if (saved) {
   (saved.t || []).forEach((v, i) => { if (LASERS.some(l => l.id === v)) $(TUR[i]).value = v; });
   if (Array.isArray(saved.u) && saved.u.some(Boolean)) saved.u.forEach((c, i) => { $('u' + (i+1)).checked = !!c; });
-  if (saved.gadget) $('gadget').value = saved.gadget;
-  if (saved.basis === 'base' || saved.basis === 'live') basis = saved.basis;
 }
 try { if (localStorage.getItem('moleCrackOpen') === '1') $('settings').open = true; } catch(e){}
 applyLang();
