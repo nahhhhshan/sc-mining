@@ -4,10 +4,10 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>MOLE 破砕判定 | Star Citizen MOLE Rock Breakability</title>
-<meta name="description" content="Star Citizen の採掘で、スキャンした岩の質量と抵抗から、レンタル MOLE（Arbor MH2）で割れるか、何門必要かを判定します。">
+<meta name="description" content="Star Citizen の採掘で、スキャンした岩の耐性と質量から、MOLE の砲塔の組み合わせごとに割れるかを早見表で判定します。">
 <meta property="og:type" content="website">
 <meta property="og:title" content="MOLE 破砕判定">
-<meta property="og:description" content="Star Citizen の採掘で、スキャンした岩の質量と抵抗から、レンタル MOLE（Arbor MH2）で割れるか、何門必要かを判定します。">
+<meta property="og:description" content="Star Citizen の採掘で、スキャンした岩の耐性と質量から、MOLE の砲塔の組み合わせごとに割れるかを早見表で判定します。">
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
 <style>body{margin:0}</style>
 <script>window.goatcounter = {no_onload: true};
@@ -152,7 +152,7 @@ footer a{color:var(--accent)}
 </div>
 
 <script>
-// サイズ2の採掘レーザー（Star Citizen Wiki API、4.10.1-LIVE）。res = 抵抗補正（%）、inst = 不安定性補正（%）、range = 最適射程（m）
+// サイズ2の採掘レーザー（Star Citizen Wiki API、4.10.1-LIVE）。res = 耐性補正（%）、inst = 不安定性補正（%）、range = 最適射程（m）
 const LASERS = [
   {id:'arbor',    name:'Arbor MH2',   stock:true, pow:2900, res: 25, inst:-35, range:90, slots:2},
   {id:'helix',    name:'Helix II',    pow:4930, res:-30, inst:  0, range:30, slots:3},
@@ -165,7 +165,7 @@ const LASERS = [
 // 文言：[日本語, English]
 const STR = {
   title:   ['MOLE 破砕判定', 'MOLE Rock Breaker'],
-  lead:    ['スキャンした岩の抵抗の行を見て、質量が表の値以下なら割れます。列は同じ岩を照射する砲塔の組み合わせです。',
+  lead:    ['スキャンした岩の耐性の行を見て、質量が表の値以下なら割れます。列は同じ岩を照射する砲塔の組み合わせです。',
             'Find the row for the scanned rock\'s resistance. If its mass is at or below the value, you can crack it. Columns are the turrets firing on the same rock.'],
   settings:['設定', 'Setup'],
   t1:      ['砲塔1', 'Turret 1'], t2:['砲塔2', 'Turret 2'], t3:['砲塔3', 'Turret 3'],
@@ -174,21 +174,21 @@ const STR = {
             'A rental MOLE has Arbor MH2 on all three turrets. Check "Use" only on the turrets that will be crewed.'],
   use:     ['使う', 'Use'],
   resLive: ['耐性', 'Resistance (scan)'],
-  nLive:   ['スキャナの抵抗は、いま照射しているレーザーとガジェットの補正が入った値です。掘るときと同じ門数で照射しながら抵抗を読み、その門数の列で見てください。',
+  nLive:   ['スキャナの耐性は、いま照射しているレーザーとガジェットの補正が入った値です。掘るときと同じ門数で照射しながら耐性を読み、その門数の列で見てください。',
             'The scanner shows resistance with the modifiers of the lasers and gadget currently on the rock. Read it while firing with the same turrets you will use, then check that column.'],
   h2:      ['割れる最大質量', 'Max crackable mass'],
-  res:     ['岩の抵抗', 'Rock resistance'],
-  pow:     ['出力', 'Power'], resMod:['抵抗', 'Resist'], inst:['不安定性', 'Instability'],
+  res:     ['岩の耐性', 'Rock resistance'],
+  pow:     ['出力', 'Power'], resMod:['耐性', 'Resist'], inst:['不安定性', 'Instability'],
   range:   ['最適射程', 'Optimal range'], slots:['モジュール枠', 'Module slots'],
   stock:   ['標準・レンタル', 'stock / rental'],
   perT:    ['/門', '/turret'],
-  idx:     ['抵抗の行へ移動', 'Jump to resistance'],
+  idx:     ['耐性の行へ移動', 'Jump to resistance'],
   noticeJa:['非公式のファンサイトで、Cloud Imperium とは関係ありません。', ''],
   official:['公式サイト（RSI）', 'Official site (RSI)'],
   credit:  ['レーザーの値: <a href="https://api.star-citizen.wiki/" target="_blank" rel="noopener">Star Citizen Wiki API</a>（4.10.1）。計算式: <a href="https://uverse.space/mining/fracture" target="_blank" rel="noopener">UVerse</a> ほかコミュニティの実測。',
             'Laser stats: <a href="https://api.star-citizen.wiki/" target="_blank" rel="noopener">Star Citizen Wiki API</a> (4.10.1). Formula: <a href="https://uverse.space/mining/fracture" target="_blank" rel="noopener">UVerse</a> and other community testing.'],
   notes: [[
-    '<b>計算式</b>：割れる最大質量 = 照射中のレーザーの出力の合計 × 5 × (1 − スキャナの抵抗)。CIG 非公開のため、コミュニティが実測で出した近似です。',
+    '<b>計算式</b>：割れる最大質量 = 照射中のレーザーの出力の合計 × 5 × (1 − スキャナの耐性)。CIG 非公開のため、コミュニティが実測で出した近似です。',
     '表の値ちょうどの岩は、チャージを最大近くまで上げてようやく割れます。不安定な岩は、表の値より1〜2割軽いものを選ぶと安全です。',
     '操縦席からはレーザーを撃てません。砲塔ごとに1人ずつ必要です。',
     '最適射程の外では出力が落ちます。判定どおりにならないときは近づいてください。',
@@ -212,7 +212,7 @@ const laserOf = id => LASERS.find(l => l.id === $(id).value) || LASERS[0];
 
 function maxMass(lasers, rockRes){
   const power = lasers.reduce((s, l) => s + l.pow, 0);
-  // スキャナの抵抗はすでにレーザー・ガジェットの補正込みなので、そのまま使う
+  // スキャナの耐性はすでにレーザー・ガジェットの補正込みなので、そのまま使う
   const eff = rockRes;
   return eff >= 100 ? 0 : power * 5 * (1 - eff/100);
 }
@@ -298,7 +298,7 @@ function markIndex(){
   $('idx').querySelectorAll('button').forEach(b => b.setAttribute('aria-current', +b.dataset.r === sec));
 }
 
-// 索引をクリックすると、その抵抗の行を表の枠の一番上へ
+// 索引をクリックすると、その耐性の行を表の枠の一番上へ
 $('idx').addEventListener('click', ev => {
   const b = ev.target.closest('button'); if (!b) return;
   const t = $('tbl'), row = t.querySelector(`tr[data-r="${b.dataset.r}"]`); if (!row) return;
