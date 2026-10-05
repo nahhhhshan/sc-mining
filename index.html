@@ -95,6 +95,9 @@ th small{display:block;font-family:var(--f-mono);font-size:.72rem;letter-spacing
 .use{display:flex;align-items:center;gap:6px;font-size:.85rem;cursor:pointer;user-select:none}
 .use input{width:1.1rem;height:1.1rem;accent-color:var(--accent);margin:0;cursor:pointer}
 .field.off select,.field.off .spec{opacity:.45}
+.mods{display:grid;gap:4px}
+.mods select{font-size:.85rem;padding:5px 8px}
+.mods .ml{font-size:.75rem;color:var(--muted)}
 th.grp{text-align:center;color:var(--fg);border-bottom:0;padding-bottom:0}
 th.grp small{display:inline;margin-left:6px}
 .gs{border-left:2px solid var(--line)}
@@ -128,9 +131,9 @@ footer a{color:var(--accent)}
     <summary><span class="label" data-i18n="settings"></span><span class="sumtext" id="sumtext"></span></summary>
     <div class="setbody">
       <div class="turrets">
-        <div class="field" id="f1"><div class="thead-row"><label for="t1" data-i18n="t1"></label><label class="use"><input type="checkbox" id="u1" checked><span data-i18n="use"></span></label></div><select id="t1"></select><div class="spec" id="s1"></div></div>
-        <div class="field" id="f2"><div class="thead-row"><label for="t2" data-i18n="t2"></label><label class="use"><input type="checkbox" id="u2" checked><span data-i18n="use"></span></label></div><select id="t2"></select><div class="spec" id="s2"></div></div>
-        <div class="field" id="f3"><div class="thead-row"><label for="t3" data-i18n="t3"></label><label class="use"><input type="checkbox" id="u3" checked><span data-i18n="use"></span></label></div><select id="t3"></select><div class="spec" id="s3"></div></div>
+        <div class="field" id="f1"><div class="thead-row"><label for="t1" data-i18n="t1"></label><label class="use"><input type="checkbox" id="u1" checked><span data-i18n="use"></span></label></div><select id="t1"></select><div class="mods" id="ms1"></div><div class="spec" id="s1"></div></div>
+        <div class="field" id="f2"><div class="thead-row"><label for="t2" data-i18n="t2"></label><label class="use"><input type="checkbox" id="u2" checked><span data-i18n="use"></span></label></div><select id="t2"></select><div class="mods" id="ms2"></div><div class="spec" id="s2"></div></div>
+        <div class="field" id="f3"><div class="thead-row"><label for="t3" data-i18n="t3"></label><label class="use"><input type="checkbox" id="u3" checked><span data-i18n="use"></span></label></div><select id="t3"></select><div class="mods" id="ms3"></div><div class="spec" id="s3"></div></div>
       </div>
       <div class="row2">
         <button type="button" class="btn" id="sameAll" data-i18n="same"></button>
@@ -169,6 +172,35 @@ const LASERS = [
   {id:'lancet',   name:'Lancet MH2',  pow:4350, res:  0, inst:-10, range:45, slots:2},
 ];
 
+// 採掘モジュール（Star Citizen Wiki API、4.10.1-LIVE）。破砕に関係する出力（pow）と耐性（res）の補正だけ（%）。act = アクティブの効果時間（秒）
+// 出力や耐性に影響しないもの（Torrent、Clearcut、Torpid）は省略
+const MODULES = [
+  {id:'rieger3',  name:'Rieger-C3', pow: 25},
+  {id:'rieger2',  name:'Rieger-C2', pow: 20},
+  {id:'rieger1',  name:'Rieger',    pow: 15},
+  {id:'vaux3',    name:'Vaux-C3',   pow: 25},
+  {id:'vaux2',    name:'Vaux-C2',   pow: 20},
+  {id:'vaux1',    name:'Vaux',      pow: 15},
+  {id:'overrun',  name:'Overrun',   res:-25},
+  {id:'deluge',   name:'Deluge',    res:-15},
+  {id:'focus3',   name:'Focus III', pow: -5},
+  {id:'focus2',   name:'Focus II',  pow:-10},
+  {id:'focus1',   name:'Focus',     pow:-15},
+  {id:'xtr3',     name:'XTR-XL',    pow: -5},
+  {id:'xtr2',     name:'XTR-L',     pow:-10},
+  {id:'xtr1',     name:'XTR',       pow:-15},
+  {id:'fltr3',    name:'FLTR-XL',   pow: -5},
+  {id:'fltr2',    name:'FLTR-L',    pow:-10},
+  {id:'fltr1',    name:'FLTR',      pow:-15},
+  {id:'surge',    name:'Surge',     pow: 50, res:-15, act:15},
+  {id:'forel',    name:'Forel',     pow: 50, res: 15, act:60},
+  {id:'stampede', name:'Stampede',  pow: 35, act:30},
+  {id:'brandt',   name:'Brandt',    pow: 35, res: 15, act:60},
+  {id:'rime',     name:'Rime',      pow:-15, res:-25, act:20},
+  {id:'lifeline', name:'Lifeline',  res:-15, act:15},
+  {id:'optimum',  name:'Optimum',   pow:-15, act:60},
+];
+
 // 文言：[日本語, English]
 const STR = {
   title:   ['StarCitizen 岩破砕判定', 'StarCitizen Rock Breaker'],
@@ -187,6 +219,11 @@ const STR = {
   resBase: ['元の耐性', 'Original'],
   scanT:   ['スキャン時', 'scan'],
   massLim: ['質量上限', 'Max mass'],
+  slot:    ['モジュール', 'Module'],
+  noMod:   ['なし', 'None'],
+  active:  ['アクティブ', 'active'],
+  sec:     ['秒', 's'],
+  effPow:  ['実出力', 'Effective'],
   h2:      ['割れる最大質量', 'Max crackable mass'],
   res:     ['岩の耐性', 'Rock resistance'],
   pow:     ['出力', 'Power'], resMod:['耐性', 'Resist'], inst:['不安定性', 'Instability'],
@@ -203,13 +240,13 @@ const STR = {
     '表の値ちょうどの岩は、チャージを最大近くまで上げてようやく割れます。不安定な岩は、表の値より1〜2割軽いものを選ぶと安全です。',
     '操縦席からはレーザーを撃てません。砲塔ごとに1人ずつ必要です。',
     '最適射程の外では出力が落ちます。判定どおりにならないときは近づいてください。',
-    'レーザーモジュールは計算に入れていません。出力が上がるモジュールを積めば、表の値より少し重い岩も割れます。',
+    'モジュールの出力補正は掛け算で、耐性補正はレーザーと同じく元の耐性に掛けて計算します。アクティブモジュールは効果が出ている間だけの値です（Surge は15秒など）。',
   ], [
     '<b>Formula</b>: max crackable mass = total power of the firing lasers × 5 × (1 − scanned resistance). CIG has not published this; it is a community estimate from testing.',
     'A rock right at the limit cracks only near full throttle. For unstable rocks, pick ones 10–20% lighter than the value.',
     'The pilot seat has no mining laser. Each turret needs its own crew member.',
     'Power drops outside optimal range. Move closer if a rock does not crack as expected.',
-    'Laser modules are not included. With power modules you can crack slightly heavier rocks than shown.',
+    'Module power modifiers are multiplied, and resistance modifiers are applied to the original resistance like the laser ones. Active modules only apply while active (e.g. Surge for 15 s).',
   ]],
 };
 let lang = 'ja';
@@ -220,9 +257,39 @@ const fmt = n => Math.round(n).toLocaleString('en-US');
 const pct = n => (n > 0 ? '+' : n < 0 ? '−' : '±') + Math.abs(n) + '%';
 const TUR = ['t1','t2','t3'];
 const laserOf = id => LASERS.find(l => l.id === $(id).value) || LASERS[0];
+const modOf = id => MODULES.find(m => m.id === id);
+const modLabel = m => {
+  const fx = [];
+  if (m.act) fx.push(`${T('active')} ${m.act}${T('sec')}`);
+  if (m.pow) fx.push(`${T('pow')} ${pct(m.pow)}`);
+  if (m.res) fx.push(`${T('resMod')} ${pct(m.res)}`);
+  return `${m.name}` + (lang === 'en' ? ` (${fx.join(', ')})` : `（${fx.join('・')}）`);
+};
+// 砲塔のモジュール枠を、レーザーの枠数に合わせて作り直す（選んでいた値は残す）
+function buildSlots(n, keepVals){
+  const L = laserOf('t' + n), box = $('ms' + n);
+  const prev = keepVals || [...box.querySelectorAll('select')].map(x => x.value);
+  let h = '';
+  for (let k = 0; k < L.slots; k++) {
+    h += `<select id="m${n}_${k}" aria-label="${T('t' + n)} ${T('slot')} ${k+1}"><option value="">${T('slot')} ${k+1}: ${T('noMod')}</option>` +
+      MODULES.map(m => `<option value="${m.id}">${modLabel(m)}</option>`).join('') + '</select>';
+  }
+  box.innerHTML = h;
+  box.querySelectorAll('select').forEach((x, k) => { if (prev[k] && modOf(prev[k])) x.value = prev[k]; });
+}
+const modsOf = n => [...$('ms' + n).querySelectorAll('select')].map(x => modOf(x.value)).filter(Boolean);
+// 砲塔1つ分：出力（モジュールの出力補正を掛ける）と耐性の倍率（レーザーとモジュールの耐性補正の積）
+function rigOf(n){
+  const L = laserOf('t' + n), ms = modsOf(n);
+  const pow = L.pow * ms.reduce((a, m) => a * (1 + (m.pow || 0)/100), 1);
+  const m = (1 + L.res/100) * ms.reduce((a, x) => a * (1 + (x.res || 0)/100), 1);
+  const key = L.id + '|' + ms.map(x => x.id).sort().join(',');
+  const label = L.name + (ms.length ? ' + ' + ms.map(x => x.name).join(', ') : '');
+  return {L, ms, pow, m, key, label};
+}
 
-function maxMass(lasers, rockRes){
-  const power = lasers.reduce((s, l) => s + l.pow, 0);
+function maxMass(rigs, rockRes){
+  const power = rigs.reduce((s, r) => s + r.pow, 0);
   // スキャナの耐性はすでにレーザー・ガジェットの補正込みなので、そのまま使う
   const eff = rockRes;
   return eff >= 100 ? 0 : power * 5 * (1 - eff/100);
@@ -243,43 +310,45 @@ function applyLang(){
     if (lang === 'en') $(id).querySelectorAll('option').forEach(o => o.textContent = o.textContent.replace('（', ' (').replace('）', ')'));
     $(id).value = v || 'arbor';
   });
+  [1,2,3].forEach(n => buildSlots(n));
   render();
 }
 
 function render(){
-  const ls = TUR.map(laserOf);
+  const rigs = [1,2,3].map(rigOf);
 
   const used = [0,1,2].filter(i => $('u' + (i+1)).checked);
   TUR.forEach((id, i) => {
-    const L = ls[i];
+    const R = rigs[i], L = R.L;
     $('f' + (i+1)).classList.toggle('off', !used.includes(i));
     $('s' + (i+1)).innerHTML =
-      `<span>${T('pow')} <b>${fmt(L.pow)}</b></span><span>${T('resMod')} <b>${pct(L.res)}</b></span>` +
+      `<span>${T('pow')} <b>${fmt(L.pow)}</b>${R.pow !== L.pow ? ` → ${T('effPow')} <b>${fmt(R.pow)}</b>` : ''}</span>` +
+      `<span>${T('resMod')} <b>${pct(Math.round((R.m - 1) * 1000) / 10)}</b></span>` +
       `<span>${T('inst')} <b>${pct(L.inst)}</b></span><span>${T('range')} <b>${L.range} m</b></span>`;
   });
-  const uls = used.map(i => ls[i]);
-  const same = uls.every(l => l.id === uls[0].id);
+  const urs = used.map(i => rigs[i]);
+  const same = urs.every(r => r.key === urs[0].key);
   const tn = idx => idx.map(i => i+1).join(lang === 'en' ? '+' : '・');
   const lasersTxt = same
-    ? `<b>${uls[0].name}</b> ×${uls.length}` + (lang === 'en' ? ` (T${tn(used)})` : `（砲塔${tn(used)}）`)
-    : used.map(i => `T${i+1} <b>${ls[i].name}</b>`).join(' · ');
+    ? `<b>${urs[0].label}</b> ×${urs.length}` + (lang === 'en' ? ` (T${tn(used)})` : `（砲塔${tn(used)}）`)
+    : used.map(i => `T${i+1} <b>${rigs[i].label}</b>`).join(' · ');
   $('sumtext').innerHTML = lasersTxt;
 
-  // 列：使う砲塔それぞれ単独（同じレーザーはまとめる）＋使う砲塔すべて同時
+  // 列：使う砲塔それぞれ単独（同じ構成はまとめる）＋使う砲塔すべて同時
   const cols = [];
   const groups = [];
-  used.forEach(i => { const g = groups.find(x => x.id === ls[i].id); g ? g.idx.push(i) : groups.push({id: ls[i].id, idx: [i]}); });
+  used.forEach(i => { const g = groups.find(x => x.key === rigs[i].key); g ? g.idx.push(i) : groups.push({key: rigs[i].key, idx: [i]}); });
   if (used.length > 1 || groups.length === 1) groups.forEach(gp => {
     const head = gp.idx.length === 1
       ? (lang === 'en' ? `1 crew (T${gp.idx[0]+1})` : `1人（砲塔${gp.idx[0]+1}）`)
       : (lang === 'en' ? `1 crew (T${tn(gp.idx)})` : `1人（砲塔${tn(gp.idx)}のどれか）`);
-    cols.push({head, sub: ls[gp.idx[0]].name, set: [ls[gp.idx[0]]]});
+    cols.push({head, sub: rigs[gp.idx[0]].label, set: [rigs[gp.idx[0]]]});
   });
   if (used.length > 1) cols.push({
     head: lang === 'en' ? `${used.length} crew (T${tn(used)})` : `${used.length}人（砲塔${tn(used)}）`,
-    sub: same ? uls[0].name : '', set: uls});
+    sub: same ? urs[0].label : '', set: urs});
   // 各列の耐性補正の倍率（照射中のレーザーの補正の掛け算）。行は元の耐性（スキャン時）を1%刻みにし、各列の照射中の耐性を推定する
-  cols.forEach(c => { c.m = c.set.reduce((m, l) => m * (1 + l.res/100), 1); });
+  cols.forEach(c => { c.m = c.set.reduce((m, r) => m * r.m, 1); });
   let h = `<thead><tr><th rowspan="2" class="bcol">${T('resBase')}<small>${T('scanT')}</small></th>` +
     cols.map(c => `<th colspan="2" class="grp gs">${c.head}${c.sub ? `<small>${c.sub}</small>` : ''}</th>`).join('') + '</tr><tr>' +
     cols.map(() => `<th class="gs">${T('resLive')}</th><th>${T('massLim')}</th>`).join('') + '</tr></thead><tbody>';
@@ -302,7 +371,7 @@ function render(){
   $('idx').innerHTML = ix;
   markIndex();
 
-  try { localStorage.setItem('moleCrack3', JSON.stringify({t: TUR.map(id => $(id).value), u: [1,2,3].map(n => $('u' + n).checked), lang})); } catch(e){}
+  try { localStorage.setItem('moleCrack3', JSON.stringify({t: TUR.map(id => $(id).value), m: [1,2,3].map(n => [...$('ms' + n).querySelectorAll('select')].map(x => x.value)), u: [1,2,3].map(n => $('u' + n).checked), lang})); } catch(e){}
 }
 
 // 表の枠で一番上に見えている行の区切りを、索引で強調
@@ -322,13 +391,18 @@ $('idx').addEventListener('click', ev => {
   $('tblBox').scrollTop = row.offsetTop - t.tHead.offsetHeight;
 });
 $('tblBox').addEventListener('scroll', markIndex, {passive:true});
-TUR.forEach(id => $(id).addEventListener('change', render));
+TUR.forEach((id, i) => $(id).addEventListener('change', () => { buildSlots(i+1); render(); }));
+[1,2,3].forEach(n => $('ms' + n).addEventListener('change', render));
 // 使う砲塔：最後の1つは外せない
 [1,2,3].forEach(n => $('u' + n).addEventListener('change', ev => {
   if (![1,2,3].some(k => $('u' + k).checked)) ev.target.checked = true;
   render();
 }));
-$('sameAll').addEventListener('click', () => { $('t2').value = $('t1').value; $('t3').value = $('t1').value; render(); });
+$('sameAll').addEventListener('click', () => {
+  const mv = [...$('ms1').querySelectorAll('select')].map(x => x.value);
+  [2,3].forEach(n => { $('t' + n).value = $('t1').value; buildSlots(n, mv); });
+  render();
+});
 document.querySelectorAll('.lang button').forEach(b => b.addEventListener('click', () => { lang = b.dataset.lang; applyLang(); }));
 $('settings').addEventListener('toggle', () => {
   try { localStorage.setItem('moleCrackOpen', $('settings').open ? '1' : '0'); } catch(e){}
@@ -340,6 +414,7 @@ lang = saved && saved.lang ? saved.lang : (/^ja\b/i.test(navigator.language || '
 TUR.forEach(id => { $(id).innerHTML = LASERS.map(l => `<option value="${l.id}">${l.name}</option>`).join(''); });
 if (saved) {
   (saved.t || []).forEach((v, i) => { if (LASERS.some(l => l.id === v)) $(TUR[i]).value = v; });
+  if (Array.isArray(saved.m)) saved.m.forEach((mv, i) => { if (Array.isArray(mv)) buildSlots(i+1, mv); });
   if (Array.isArray(saved.u) && saved.u.some(Boolean)) saved.u.forEach((c, i) => { $('u' + (i+1)).checked = !!c; });
 }
 try { if (localStorage.getItem('moleCrackOpen') === '1') $('settings').open = true; } catch(e){}
