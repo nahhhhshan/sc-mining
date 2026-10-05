@@ -415,14 +415,17 @@ function render(){
 }
 
 // 表の枠で一番上に見えている行の区切りを、索引で強調
+// 索引で飛んだ区切り（手でスクロールするまで強調を保つ。最後のほうは先頭まで上げられないため）
+let jump = null;
 function markIndex(){
   const box = $('tblBox'), t = $('tbl');
   const top = box.scrollTop + (t.tHead ? t.tHead.offsetHeight : 0);
   let cur = 0;
   for (const r of t.tBodies[0].rows) { if (r.offsetTop + r.offsetHeight/2 > top) { cur = +r.dataset.r; break; } }
   let sec = Math.floor(cur/10)*10;
-  // 一番下までスクロールしたら（最後の区切りは先頭まで上げられないので）最後の区切りを強調
-  if (box.scrollTop > 0 && box.scrollTop + box.clientHeight >= box.scrollHeight - 2) sec = 100;
+  if (jump && Math.abs(box.scrollTop - jump.top) <= 2) sec = jump.r;
+  else if (box.scrollTop > 0 && box.scrollTop + box.clientHeight >= box.scrollHeight - 2) sec = 100;
+  else jump = null;
   $('idx').querySelectorAll('button').forEach(b => b.setAttribute('aria-current', +b.dataset.r === sec));
 }
 
@@ -431,6 +434,8 @@ $('idx').addEventListener('click', ev => {
   const b = ev.target.closest('button'); if (!b) return;
   const t = $('tbl'), row = t.querySelector(`tr[data-r="${b.dataset.r}"]`); if (!row) return;
   $('tblBox').scrollTop = row.offsetTop - t.tHead.offsetHeight;
+  jump = {r: +b.dataset.r, top: $('tblBox').scrollTop};
+  markIndex();
 });
 $('tblBox').addEventListener('scroll', markIndex, {passive:true});
 TUR.forEach((id, i) => $(id).addEventListener('change', () => { buildSlots(i+1); render(); }));
