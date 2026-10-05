@@ -98,8 +98,9 @@ th small{display:block;font-family:var(--f-mono);font-size:.72rem;letter-spacing
 th.grp{text-align:center;color:var(--fg);border-bottom:0;padding-bottom:0}
 th.grp small{display:inline;margin-left:6px}
 .gs{border-left:2px solid var(--line)}
-td.rv{color:var(--muted)}
-td.rv.key{color:var(--fg)}
+td.rv{color:var(--fg)}
+th.bcol{text-align:left;vertical-align:bottom}
+td.rv.key{color:var(--muted)}
 tr.ten td{background:var(--band)}
 tr.ten td.key{color:var(--accent);font-weight:600}
 
@@ -172,8 +173,8 @@ const LASERS = [
 const STR = {
   title:   ['StarCitizen 岩破砕判定', 'StarCitizen Rock Breaker'],
   brand:   ['Rock Breaker', 'Rock Breaker'],
-  lead:    ['スキャンした岩の耐性の行を見て、質量が質量上限以下なら割れます。1人で照射したときと、2人で照射したときの耐性を並べています。',
-            'Find the row for the scanned rock\'s resistance. If its mass is at or below the max mass, you can crack it. Resistance with 1 turret and with 2+ turrets firing are shown side by side.'],
+  lead:    ['元の耐性（スキャン時）、1人で照射したとき、2人で照射したときの3つの耐性を並べています。見えている耐性の行で、質量が質量上限以下なら割れます。',
+            'Shows three resistance values: original (at scan), with 1 turret firing, and with 2 turrets firing. On the row for the value you see, a rock at or below the max mass can be cracked.'],
   settings:['設定', 'Setup'],
   t1:      ['砲塔1', 'Turret 1'], t2:['砲塔2', 'Turret 2'], t3:['砲塔3', 'Turret 3'],
   same:    ['全砲塔を砲塔1と同じにする', 'Set all turrets to Turret 1'],
@@ -181,8 +182,10 @@ const STR = {
             'A rental MOLE has Arbor MH2 on all three turrets. Check "Use" only on the turrets that will be crewed.'],
   use:     ['使う', 'Use'],
   resLive: ['耐性', 'Resistance (scan)'],
-  nLive:   ['スキャナの耐性は、照射しているレーザーの補正込みの値なので、1人と2人で変わります。いま照射している人数の「耐性」の列で、見えている値の行を探してください。同じ行の質量上限以下なら割れます。2人以上の耐性は、1人の値からレーザーの耐性補正で計算した推定値です。',
-            'The scanned resistance includes the modifiers of the lasers on the rock, so it differs with 1 or 2 crew. Find the value you see in the Resistance column for the number of turrets firing. If the mass is at or below the limit on that row, you can crack it. Values for 2+ turrets are estimated from the 1-turret value using the laser resistance modifiers.'],
+  nLive:   ['耐性は3つあります。照射前にスキャンしたときの元の耐性（左端）、1人で照射したとき、2人で照射したときです。照射するとレーザーの補正が入るので値が変わります。いま見えている耐性をその列で探し、同じ組の質量上限以下なら割れます。1人・2人の耐性は、元の耐性にレーザーの耐性補正を掛けた推定値です。',
+            'There are three resistance values: the original value when you scan before firing (far left), with 1 turret firing, and with 2 turrets firing. Firing applies the laser modifiers, so the value changes. Find the value you see in the matching column; if the mass is at or below the max mass in that group, you can crack it. The 1- and 2-turret values are estimates: original resistance × the laser resistance modifiers.'],
+  resBase: ['元の耐性', 'Original'],
+  scanT:   ['スキャン時', 'scan'],
   massLim: ['質量上限', 'Max mass'],
   h2:      ['割れる最大質量', 'Max crackable mass'],
   res:     ['岩の耐性', 'Rock resistance'],
@@ -275,18 +278,16 @@ function render(){
   if (used.length > 1) cols.push({
     head: lang === 'en' ? `${used.length} crew (T${tn(used)})` : `${used.length}人（砲塔${tn(used)}）`,
     sub: same ? uls[0].name : '', set: uls});
-  // 各列の耐性補正の倍率（照射中のレーザーの補正の掛け算）。1列目の耐性を1%刻みにし、同じ岩の他の列の耐性を推定する
+  // 各列の耐性補正の倍率（照射中のレーザーの補正の掛け算）。行は元の耐性（スキャン時）を1%刻みにし、各列の照射中の耐性を推定する
   cols.forEach(c => { c.m = c.set.reduce((m, l) => m * (1 + l.res/100), 1); });
-  const m0 = cols[0].m;
-  let h = '<thead><tr>' + cols.map((c, i) => `<th colspan="2" class="grp${i ? ' gs' : ''}">${c.head}${c.sub ? `<small>${c.sub}</small>` : ''}</th>`).join('') + '</tr><tr>' +
-    cols.map((c, i) => `<th class="${i ? 'gs' : ''}">${T('resLive')}</th><th>${T('massLim')}</th>`).join('') + '</tr></thead><tbody>';
+  let h = `<thead><tr><th rowspan="2" class="bcol">${T('resBase')}<small>${T('scanT')}</small></th>` +
+    cols.map(c => `<th colspan="2" class="grp gs">${c.head}${c.sub ? `<small>${c.sub}</small>` : ''}</th>`).join('') + '</tr><tr>' +
+    cols.map(() => `<th class="gs">${T('resLive')}</th><th>${T('massLim')}</th>`).join('') + '</tr></thead><tbody>';
   for (let rr=0; rr<=99; rr++){
-    const base = rr / m0;
-    h += `<tr data-r="${rr}"${rr%10===0?' class="ten"':''}>` + cols.map((c, i) => {
-      const r = i === 0 ? rr : base * c.m;
-      const v = maxMass(c.set, r);
-      return `<td class="rv${i ? ' gs' : ' key'}">${r < 100 ? Math.round(r) + '%' : '—'}</td><td>${v > 0 ? fmt(v) : '—'}</td>`;
-    }).join('') + '</tr>';
+    const vals = cols.map(c => { const r = rr * c.m; return {r, v: maxMass(c.set, r)}; });
+    if (vals.every(x => x.v <= 0)) break;
+    h += `<tr data-r="${rr}"${rr%10===0?' class="ten"':''}><td class="rv key">${rr}%</td>` +
+      vals.map(x => `<td class="rv gs">${x.r < 100 ? Math.round(x.r) + '%' : '—'}</td><td>${x.v > 0 ? fmt(x.v) : '—'}</td>`).join('') + '</tr>';
   }
   const keep = $('tblBox').scrollTop;
   $('tbl').innerHTML = h + '</tbody>';
