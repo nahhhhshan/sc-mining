@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>StarCitizen 岩破砕判定 | StarCitizen Rock Breaker</title>
+<title>StarCitizen 岩破砕判定 | StarCitizen Rock Break Check</title>
 <meta name="description" content="Star Citizen の採掘で、スキャンした岩の耐性と質量から、MOLE の砲塔の組み合わせごとに割れるかを早見表で判定します。">
 <meta property="og:type" content="website">
 <meta property="og:title" content="StarCitizen 岩破砕判定">
@@ -121,7 +121,7 @@ footer a{color:var(--accent)}
 <div class="wrap">
   <header>
     <div class="ttl">
-      <h1>StarCitizen <span data-i18n="brand">Rock Breaker</span></h1>
+      <h1>StarCitizen <span data-i18n="brand">Rock Break Check</span></h1>
       <p data-i18n="lead"></p>
       <div class="sub"><span id="gameVer"></span><span id="fetched"></span><span class="ver" id="appVer"></span></div>
     </div>
@@ -178,8 +178,8 @@ const LASERS = [
   {id:'lancet',   name:'Lancet MH2',  pow:4350, res:  0, inst:-10, range:45, slots:2},
 ];
 
-const APP_VERSION = '1.0.0';
-const APP_UPDATED = '2026-10-05 09:20';
+const APP_VERSION = '1.0.1';
+const APP_UPDATED = '2026-10-05 10:22';
 const GAME_VERSION = '4.10.1-LIVE';
 const DATA_FETCHED = '2026-10-05';
 
@@ -224,8 +224,8 @@ const MODULES = [
 
 // 文言：[日本語, English]
 const STR = {
-  title:   ['StarCitizen 岩破砕判定', 'StarCitizen Rock Breaker'],
-  brand:   ['Rock Breaker', 'Rock Breaker'],
+  title:   ['StarCitizen 岩破砕判定', 'StarCitizen Rock Break Check'],
+  brand:   ['Rock Break Check', 'Rock Break Check'],
   lead:    ['元の耐性（スキャン時）、1人で照射したとき、2人で照射したときの3つの耐性を並べています。見えている耐性の行で、質量が質量上限以下なら割れます。',
             'Shows three resistance values: original (at scan), with 1 turret firing, and with 2 turrets firing. On the row for the value you see, a rock at or below the max mass can be cracked.'],
   settings:['設定', 'Setup'],
