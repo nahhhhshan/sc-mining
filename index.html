@@ -420,7 +420,9 @@ function markIndex(){
   const top = box.scrollTop + (t.tHead ? t.tHead.offsetHeight : 0);
   let cur = 0;
   for (const r of t.tBodies[0].rows) { if (r.offsetTop + r.offsetHeight/2 > top) { cur = +r.dataset.r; break; } }
-  const sec = Math.floor(cur/10)*10;
+  let sec = Math.floor(cur/10)*10;
+  // 一番下までスクロールしたら（最後の区切りは先頭まで上げられないので）最後の区切りを強調
+  if (box.scrollTop > 0 && box.scrollTop + box.clientHeight >= box.scrollHeight - 2) sec = 100;
   $('idx').querySelectorAll('button').forEach(b => b.setAttribute('aria-current', +b.dataset.r === sec));
 }
 
