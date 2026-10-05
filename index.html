@@ -43,6 +43,9 @@ header .ttl{min-width:0;flex:1 1 20rem}
 header h1{font-family:var(--f-disp);font-weight:600;font-size:1.7rem;letter-spacing:.04em;margin:0;text-wrap:balance;color:var(--brand-ink)}
 header h1 span{color:var(--brand)}
 header p{margin:4px 0 0;color:var(--muted);font-size:.9rem}
+.sub{color:var(--muted);font-size:12px;letter-spacing:.04em;display:flex;flex-wrap:wrap;gap:2px 14px;margin-top:4px}
+.sub .ver{font-family:var(--f-mono);font-size:11px;border:1px solid var(--line);border-radius:3px;padding:0 5px}
+.row2 .field.gad{flex:0 1 22rem}
 .lang{display:flex;border:1px solid var(--line);border-radius:4px;overflow:hidden}
 .lang button{font-family:var(--f-body);font-size:.85rem;padding:5px 12px;border:0;background:var(--panel);color:var(--fg);cursor:pointer}
 .lang button+button{border-left:1px solid var(--line)}
@@ -120,6 +123,7 @@ footer a{color:var(--accent)}
     <div class="ttl">
       <h1>StarCitizen <span data-i18n="brand">Rock Breaker</span></h1>
       <p data-i18n="lead"></p>
+      <div class="sub"><span id="gameVer"></span><span id="fetched"></span><span class="ver" id="appVer"></span></div>
     </div>
     <div class="lang" role="group" aria-label="Language / 言語">
       <button type="button" id="langJa" data-lang="ja" aria-pressed="true">日本語</button>
@@ -137,6 +141,7 @@ footer a{color:var(--accent)}
       </div>
       <div class="row2">
         <button type="button" class="btn" id="sameAll" data-i18n="same"></button>
+        <div class="field gad"><label for="gadget" data-i18n="gadget"></label><select id="gadget"></select></div>
       </div>
       <p class="hint" data-i18n="hint"></p>
     </div>
@@ -158,6 +163,7 @@ footer a{color:var(--accent)}
   <footer>
     <p>This is an unofficial Star Citizen fan site, not affiliated with the Cloud Imperium group of companies. All content on this site not authored by its host or users are property of their respective owners. <span data-i18n="noticeJa"></span> <a href="https://robertsspaceindustries.com/" target="_blank" rel="noopener" data-i18n="official"></a></p>
     <p data-i18n-html="credit"></p>
+    <p id="updated"></p>
   </footer>
 </div>
 
@@ -170,6 +176,21 @@ const LASERS = [
   {id:'impact',   name:'Impact II',   pow:4060, res: 10, inst:-10, range:60, slots:3},
   {id:'klein',    name:'Klein-S2',    pow:4350, res:-45, inst: 35, range:60, slots:1},
   {id:'lancet',   name:'Lancet MH2',  pow:4350, res:  0, inst:-10, range:45, slots:2},
+];
+
+const APP_VERSION = '1.0.0';
+const APP_UPDATED = '2026-10-05 09:20';
+const GAME_VERSION = '4.10.1-LIVE';
+const DATA_FETCHED = '2026-10-05';
+
+// 採掘ガジェット（Star Citizen Wiki API、4.10.1-LIVE）。岩に1つ付ける。res = 耐性補正、inst = 不安定性補正（%）
+const GADGETS = [
+  {id:'sabir',    name:'Sabir',     res:-50, inst: 15},
+  {id:'optimax',  name:'OptiMax',   res:-25},
+  {id:'boremax',  name:'BoreMax',   res: 10, inst:-70},
+  {id:'okunis',   name:'Okunis'},
+  {id:'stalwart', name:'Stalwart',  inst:-35},
+  {id:'waveshift',name:'Waveshift', inst:-35},
 ];
 
 // 採掘モジュール（Star Citizen Wiki API、4.10.1-LIVE）。破砕に関係する出力（pow）と耐性（res）の補正だけ（%）。act = アクティブの効果時間（秒）
@@ -219,6 +240,12 @@ const STR = {
   resBase: ['元の耐性', 'Original'],
   scanT:   ['スキャン時', 'scan'],
   massLim: ['質量上限', 'Max mass'],
+  gadget:  ['ガジェット（岩に付ける）', 'Gadget (on the rock)'],
+  gadgetS: ['ガジェット', 'Gadget'],
+  noFx:    ['耐性に影響なし', 'no effect on resistance'],
+  gameVer: ['ゲーム版 ', 'Game version '],
+  fetched: ['データ取得 ', 'Data fetched '],
+  updated: ['アプリ更新 ', 'App updated '],
   slot:    ['モジュール', 'Module'],
   noMod:   ['なし', 'None'],
   active:  ['アクティブ', 'active'],
@@ -240,13 +267,13 @@ const STR = {
     '表の値ちょうどの岩は、チャージを最大近くまで上げてようやく割れます。不安定な岩は、表の値より1〜2割軽いものを選ぶと安全です。',
     '操縦席からはレーザーを撃てません。砲塔ごとに1人ずつ必要です。',
     '最適射程の外では出力が落ちます。判定どおりにならないときは近づいてください。',
-    'モジュールの出力補正は掛け算で、耐性補正はレーザーと同じく元の耐性に掛けて計算します。アクティブモジュールは効果が出ている間だけの値です（Surge は15秒など）。',
+    'モジュールの出力補正は掛け算で、モジュールとガジェットの耐性補正はレーザーと同じく元の耐性に掛けて計算します。元の耐性はガジェットを付ける前にスキャンした値です。アクティブモジュールは効果が出ている間だけの値です（Surge は15秒など）。',
   ], [
     '<b>Formula</b>: max crackable mass = total power of the firing lasers × 5 × (1 − scanned resistance). CIG has not published this; it is a community estimate from testing.',
     'A rock right at the limit cracks only near full throttle. For unstable rocks, pick ones 10–20% lighter than the value.',
     'The pilot seat has no mining laser. Each turret needs its own crew member.',
     'Power drops outside optimal range. Move closer if a rock does not crack as expected.',
-    'Module power modifiers are multiplied, and resistance modifiers are applied to the original resistance like the laser ones. Active modules only apply while active (e.g. Surge for 15 s).',
+    'Module power modifiers are multiplied. Module and gadget resistance modifiers are applied to the original resistance like the laser ones. The original value is the scan before attaching a gadget. Active modules only apply while active (e.g. Surge for 15 s).',
   ]],
 };
 let lang = 'ja';
@@ -311,6 +338,19 @@ function applyLang(){
     $(id).value = v || 'arbor';
   });
   [1,2,3].forEach(n => buildSlots(n));
+  const gv = $('gadget').value;
+  $('gadget').innerHTML = `<option value="">${T('noMod')}</option>` + GADGETS.map(g => {
+    const fx = [];
+    if (g.res) fx.push(`${T('resMod')} ${pct(g.res)}`);
+    if (g.inst) fx.push(`${T('inst')} ${pct(g.inst)}`);
+    if (!g.res) fx.unshift(T('noFx'));
+    return `<option value="${g.id}">${g.name}` + (lang === 'en' ? ` (${fx.join(', ')})` : `（${fx.join('・')}）`) + '</option>';
+  }).join('');
+  $('gadget').value = gv;
+  $('gameVer').textContent = T('gameVer') + GAME_VERSION;
+  $('fetched').textContent = T('fetched') + DATA_FETCHED;
+  $('appVer').textContent = 'v' + APP_VERSION;
+  $('updated').textContent = T('updated') + APP_UPDATED + (lang === 'en' ? ' JST' : '');
   render();
 }
 
@@ -332,7 +372,9 @@ function render(){
   const lasersTxt = same
     ? `<b>${urs[0].label}</b> ×${urs.length}` + (lang === 'en' ? ` (T${tn(used)})` : `（砲塔${tn(used)}）`)
     : used.map(i => `T${i+1} <b>${rigs[i].label}</b>`).join(' · ');
-  $('sumtext').innerHTML = lasersTxt;
+  const G = GADGETS.find(g => g.id === $('gadget').value);
+  const gm = G && G.res ? 1 + G.res/100 : 1;
+  $('sumtext').innerHTML = lasersTxt + (G ? ` · ${T('gadgetS')} <b>${G.name}</b>` : '');
 
   // 列：使う砲塔それぞれ単独（同じ構成はまとめる）＋使う砲塔すべて同時
   const cols = [];
@@ -348,7 +390,7 @@ function render(){
     head: lang === 'en' ? `${used.length} crew (T${tn(used)})` : `${used.length}人（砲塔${tn(used)}）`,
     sub: same ? urs[0].label : '', set: urs});
   // 各列の耐性補正の倍率（照射中のレーザーの補正の掛け算）。行は元の耐性（スキャン時）を1%刻みにし、各列の照射中の耐性を推定する
-  cols.forEach(c => { c.m = c.set.reduce((m, r) => m * r.m, 1); });
+  cols.forEach(c => { c.m = c.set.reduce((m, r) => m * r.m, 1) * gm; });
   let h = `<thead><tr><th rowspan="2" class="bcol">${T('resBase')}<small>${T('scanT')}</small></th>` +
     cols.map(c => `<th colspan="2" class="grp gs">${c.head}${c.sub ? `<small>${c.sub}</small>` : ''}</th>`).join('') + '</tr><tr>' +
     cols.map(() => `<th class="gs">${T('resLive')}</th><th>${T('massLim')}</th>`).join('') + '</tr></thead><tbody>';
@@ -371,7 +413,7 @@ function render(){
   $('idx').innerHTML = ix;
   markIndex();
 
-  try { localStorage.setItem('moleCrack3', JSON.stringify({t: TUR.map(id => $(id).value), m: [1,2,3].map(n => [...$('ms' + n).querySelectorAll('select')].map(x => x.value)), u: [1,2,3].map(n => $('u' + n).checked), lang})); } catch(e){}
+  try { localStorage.setItem('moleCrack3', JSON.stringify({g: $('gadget').value, t: TUR.map(id => $(id).value), m: [1,2,3].map(n => [...$('ms' + n).querySelectorAll('select')].map(x => x.value)), u: [1,2,3].map(n => $('u' + n).checked), lang})); } catch(e){}
 }
 
 // 表の枠で一番上に見えている行の区切りを、索引で強調
@@ -393,6 +435,7 @@ $('idx').addEventListener('click', ev => {
 $('tblBox').addEventListener('scroll', markIndex, {passive:true});
 TUR.forEach((id, i) => $(id).addEventListener('change', () => { buildSlots(i+1); render(); }));
 [1,2,3].forEach(n => $('ms' + n).addEventListener('change', render));
+$('gadget').addEventListener('change', render);
 // 使う砲塔：最後の1つは外せない
 [1,2,3].forEach(n => $('u' + n).addEventListener('change', ev => {
   if (![1,2,3].some(k => $('u' + k).checked)) ev.target.checked = true;
@@ -414,6 +457,7 @@ lang = saved && saved.lang ? saved.lang : (/^ja\b/i.test(navigator.language || '
 TUR.forEach(id => { $(id).innerHTML = LASERS.map(l => `<option value="${l.id}">${l.name}</option>`).join(''); });
 if (saved) {
   (saved.t || []).forEach((v, i) => { if (LASERS.some(l => l.id === v)) $(TUR[i]).value = v; });
+  if (saved.g && GADGETS.some(g => g.id === saved.g)) $('gadget').innerHTML = `<option value="${saved.g}" selected></option>`;
   if (Array.isArray(saved.m)) saved.m.forEach((mv, i) => { if (Array.isArray(mv)) buildSlots(i+1, mv); });
   if (Array.isArray(saved.u) && saved.u.some(Boolean)) saved.u.forEach((c, i) => { $('u' + (i+1)).checked = !!c; });
 }
