@@ -47,6 +47,20 @@ header p{margin:4px 0 0;color:var(--muted);font-size:.9rem}
 .sub{color:var(--muted);font-size:12px;letter-spacing:.04em;display:flex;flex-wrap:wrap;gap:2px 14px;margin-top:4px}
 .sub .ver{font-family:var(--f-mono);font-size:11px;border:1px solid var(--line);border-radius:3px;padding:0 5px}
 .row2 .field.gad{flex:0 1 22rem}
+.hright{display:flex;gap:8px;align-items:flex-start;position:relative}
+.helpbtn{font-family:var(--f-body);font-size:.85rem;padding:5px 12px;border:1px solid var(--line);border-radius:4px;background:var(--panel);color:var(--fg);cursor:pointer;display:flex;gap:6px;align-items:center}
+.helpbtn b{display:inline-grid;place-items:center;width:1.15rem;height:1.15rem;border-radius:50%;background:var(--brand);color:var(--panel);font-size:.75rem;font-family:var(--f-disp)}
+.helpbtn[aria-expanded="true"]{border-color:var(--brand)}
+.helpbtn:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.helppop{position:absolute;right:0;top:calc(100% + 6px);z-index:20;width:min(34rem, calc(100vw - 32px));max-height:min(70vh, 40rem);overflow:auto;background:var(--panel);border:1px solid var(--line);border-radius:6px;box-shadow:0 8px 28px rgba(10,20,30,.18);padding:14px 18px;font-size:.88rem;line-height:1.6}
+.helppop h3{font-family:var(--f-disp);font-size:.95rem;margin:12px 0 4px;color:var(--brand)}
+.helppop h3:first-child{margin-top:0}
+.helppop dl{display:grid;grid-template-columns:max-content 1fr;gap:6px 14px;margin:0}
+.helppop dt{font-weight:600;white-space:nowrap}
+.helppop dd{margin:0;color:var(--fg)}
+@media (max-width:520px){.helppop dl{grid-template-columns:1fr}.helppop dd{margin-bottom:6px}}
+.term{border-bottom:1px dotted currentColor;cursor:help}
+.tip{position:fixed;z-index:30;max-width:20rem;background:var(--fg);color:var(--bg);font-size:.8rem;line-height:1.5;padding:7px 10px;border-radius:4px;pointer-events:none;box-shadow:0 4px 14px rgba(0,0,0,.2)}
 .lang{display:flex;border:1px solid var(--line);border-radius:4px;overflow:hidden}
 .lang button{font-family:var(--f-body);font-size:.85rem;padding:5px 12px;border:0;background:var(--panel);color:var(--fg);cursor:pointer}
 .lang button+button{border-left:1px solid var(--line)}
@@ -164,11 +178,16 @@ footer a{color:var(--accent)}
       <p data-i18n="lead"></p>
       <div class="sub"><span id="gameVer"></span><span id="fetched"></span><span class="ver" id="appVer"></span></div>
     </div>
-    <div class="lang" role="group" aria-label="Language / 言語">
-      <button type="button" id="langJa" data-lang="ja" aria-pressed="true">日本語</button>
-      <button type="button" id="langEn" data-lang="en" aria-pressed="false">English</button>
+    <div class="hright" id="hright">
+      <button type="button" class="helpbtn" id="helpBtn" aria-expanded="false" aria-controls="helpPop"><b>?</b><span data-i18n="help"></span></button>
+      <div class="lang" role="group" aria-label="Language / 言語">
+        <button type="button" id="langJa" data-lang="ja" aria-pressed="true">日本語</button>
+        <button type="button" id="langEn" data-lang="en" aria-pressed="false">English</button>
+      </div>
+      <div class="helppop" id="helpPop" role="dialog" aria-labelledby="helpBtn" hidden></div>
     </div>
   </header>
+  <div class="tip" id="tip" role="tooltip" hidden></div>
 
   <nav class="views" role="tablist">
     <button type="button" role="tab" id="vCalc" data-view="calc" aria-selected="true" data-i18n="vCalc"></button>
@@ -240,8 +259,8 @@ const LASERS = [
   {id:'lancet',   name:'Lancet MH2',  pow:4350, res:  0, inst:-10, range:45, slots:2},
 ];
 
-const APP_VERSION = '1.2.0';
-const APP_UPDATED = '2026-10-11 03:23';
+const APP_VERSION = '1.3.0';
+const APP_UPDATED = '2026-10-11 03:30';
 const GAME_VERSION = '4.10.1-LIVE';
 const DATA_FETCHED = '2026-10-11';
 
@@ -293,6 +312,31 @@ const MODULES = [
 ];
 
 // 文言：[日本語, English]
+// 用語の説明（ヘルプとマウスオーバーで共通）。[日本語, English]
+const HELP = {
+  res:     [['耐性', 'Resistance'], ['岩の割れにくさ。高いほど割るのに大きな出力が要る。レーザー・モジュール・ガジェットの補正で上下し、スキャナにはその補正込みの値が出る。マイナスの補正ほど割りやすい。', 'How hard the rock is to crack. Higher needs more power. Lasers, modules and gadgets change it, and the scanner shows the value with those modifiers. Negative modifiers make cracking easier.']],
+  base:    [['元の耐性', 'Original resistance'], ['照射前・ガジェットを付ける前にスキャンしたときの耐性。この表の行の基準。', 'Resistance when scanned before firing or attaching a gadget. The rows of the table are based on it.']],
+  mass:    [['質量上限', 'Max mass'], ['その耐性で割れる最大の質量。照射中の出力の合計 × 5 × (1 − 耐性)。ちょうどの岩はチャージ最大近くでやっと割れる。', 'The heaviest rock you can crack at that resistance: total power × 5 × (1 − resistance). A rock right at the limit needs near-full throttle.']],
+  pow:     [['チャージ出力', 'Mining power'], ['レーザーが岩に送り込む出力の範囲（最小〜最大）。スロットルで調整する。最大値が割れる重さを決める。', 'The power range the laser puts into the rock (min–max), set with the throttle. The maximum decides how heavy a rock you can crack.']],
+  effpow:  [['実出力', 'Effective power'], ['レーザーの最大出力に、モジュールの出力補正を掛けた値。', 'Laser max power multiplied by the module power modifiers.']],
+  inst:    [['不安定性', 'Instability'], ['チャージの針の揺れやすさ。高いと出力を一定に保ちにくく、緑の帯から外れやすい。マイナスの補正ほど落ち着いて操作できる。', 'How much the charge needle wobbles. Higher makes it hard to hold steady and drift out of the green band. Negative modifiers calm it down.']],
+  win:     [['最適チャージ幅', 'Optimal charge window'], ['チャージメーターの緑の帯（最適範囲）の広さ。広いほど帯の中に保ちやすく、初心者向き。', 'The width of the green band (optimal range) on the charge meter. Wider is easier to stay in.']],
+  rate:    [['最適チャージ速度', 'Optimal charge rate'], ['緑の帯の中にいるときに、チャージが溜まって破砕に近づく速さ。速いほど早く割れる。この表示には全チャージ速度の補正も含めている。', 'How fast the charge builds toward a crack while in the green band. Faster cracks sooner. The value shown here includes All charge rates.']],
+  allrate: [['全チャージ速度', 'All charge rates'], ['最適チャージ速度とオーバーチャージ速度をまとめて変える補正。', 'Changes both the optimal charge rate and the overcharge rate.']],
+  over:    [['オーバーチャージ速度', 'Overcharge rate'], ['チャージが上限（赤）を超えたときに過負荷が進む速さ。遅いほど岩が爆発しにくく安全。', 'How fast overload builds once the charge goes past the limit (red). Slower is safer.']],
+  shatter: [['破砕ダメージ', 'Shatter damage'], ['岩を割りそこねて爆発（シャッター）したときに受けるダメージ。マイナスほど安全。', 'Damage taken when a rock shatters (explodes). Negative is safer.']],
+  inert:   [['不活性物質', 'Inert materials'], ['採掘物に混ざる価値のない物質の量への補正。少ないほど貨物を有効に使える。', 'Modifier to worthless material mixed into what you collect. Less means better use of cargo space.']],
+  cluster: [['クラスタ', 'Cluster'], ['割ったあとに鉱石がまとまった破片になる度合いへの補正。', 'Modifier to how much the ore gathers into fragments after cracking.']],
+  ext:     [['抽出出力', 'Extraction'], ['割ったあとの破片から鉱石を吸い取る速さ。', 'How fast ore is pulled from fragments after cracking.']],
+  active:  [['アクティブ／パッシブ', 'Active / Passive'], ['パッシブは付けている間ずっと効く。アクティブは使ったときだけ一定時間効き、使用回数がある。', 'Passive modules always apply. Active modules apply for a set time when used and have limited uses.']],
+  rsrc:    [['資源感度', 'Resource sensitivity'], ['レーダーが鉱床・岩を見つける感度。大きいほど遠くから見つかる。', 'How well the radar detects deposits and rocks. Higher finds them farther away.']],
+  gres:    [['地上の資源感度', 'Ground resource sens.'], ['地上車両（ROC など）で使うときの資源感度。', 'Resource sensitivity when used on ground vehicles such as the ROC.']],
+  pres:    [['資源の透過', 'Resource piercing'], ['地形などに遮られた資源をどれだけ見通せるか。大きいほど見つけやすい。', 'How well it detects resources through terrain. Higher is better.']],
+  sens:    [['IR・EM・CS感度', 'IR / EM / CS sens.'], ['船などの赤外線・電磁波・断面積の信号を拾う感度。採掘には直接関係しない。', 'Sensitivity to infrared, electromagnetic and cross-section signatures of ships. Not directly related to mining.']],
+};
+const HT = (k, i) => HELP[k][i][lang === 'en' ? 1 : 0];
+const term = (k, label) => `<span class="term" data-help="${k}" tabindex="0">${label}</span>`;
+
 const STR = {
   title:   ['StarCitizen Rock Break Check', 'StarCitizen Rock Break Check'],
   brand:   ['Rock Break Check', 'Rock Break Check'],
@@ -310,6 +354,11 @@ const STR = {
   resBase: ['元の耐性', 'Original'],
   scanT:   ['スキャン時', 'scan'],
   massLim: ['質量上限', 'Max mass'],
+  help:    ['ヘルプ', 'Help'],
+  hSecRock:['岩と破砕', 'Rocks and cracking'],
+  hSecCharge:['チャージ', 'Charging'],
+  hSecOther:['その他の補正', 'Other modifiers'],
+  hSecRadar:['レーダー', 'Radar'],
   vCalc:   ['早見表', 'Quick table'],
   vEquip:  ['装備一覧', 'Equipment'],
   kLasers: ['採掘レーザー', 'Mining lasers'],
@@ -461,14 +510,15 @@ function applyLang(){
   $('appVer').textContent = 'v' + APP_VERSION;
   $('updated').textContent = T('updated') + APP_UPDATED + (lang === 'en' ? ' JST' : '');
   if (!$('viewEquip').hidden) renderEquip();
+  renderHelp();
   render();
 }
 
 // 補正の表示。good: 1 = 大きいほど有利、-1 = 小さいほど有利
-function spec(label, v, good){
+function spec(label, v, good, help){
   const r = Math.round(v * 10) / 10;
   const cls = !r ? '' : (r * good > 0 ? 'good' : 'bad');
-  return `<span>${label} <b${cls ? ` class="${cls}"` : ''}>${pct(r)}</b></span>`;
+  return `<span>${help ? term(help, label) : label} <b${cls ? ` class="${cls}"` : ''}>${pct(r)}</b></span>`;
 }
 
 function render(){
@@ -479,9 +529,9 @@ function render(){
     const R = rigs[i], L = R.L;
     $('f' + (i+1)).classList.toggle('off', !used.includes(i));
     $('s' + (i+1)).innerHTML =
-      `<span>${T('pow')} <b>${fmt(L.pow)}</b>${R.pow !== L.pow ? ` → ${T('effPow')} <b>${fmt(R.pow)}</b>` : ''}</span>` +
-      spec(T('resMod'), (R.m - 1) * 100, -1) + spec(T('inst'), R.inst, -1) +
-      spec(T('cWin'), R.win, 1) + spec(T('cRate'), R.rate, 1) +
+      `<span>${term('pow', T('pow'))} <b>${fmt(L.pow)}</b>${R.pow !== L.pow ? ` → ${term('effpow', T('effPow'))} <b>${fmt(R.pow)}</b>` : ''}</span>` +
+      spec(T('resMod'), (R.m - 1) * 100, -1, 'res') + spec(T('inst'), R.inst, -1, 'inst') +
+      spec(T('cWin'), R.win, 1, 'win') + spec(T('cRate'), R.rate, 1, 'rate') +
       `<span>${T('range')} <b>${L.range} m</b></span>`;
   });
   const urs = used.map(i => rigs[i]);
@@ -509,9 +559,9 @@ function render(){
     sub: same ? urs[0].label : '', set: urs});
   // 各列の耐性補正の倍率（照射中のレーザーの補正の掛け算）。行は元の耐性（スキャン時）を1%刻みにし、各列の照射中の耐性を推定する
   cols.forEach(c => { c.m = c.set.reduce((m, r) => m * r.m, 1) * gm; });
-  let h = `<thead><tr><th rowspan="2" class="bcol">${T('resBase')}<small>${T('scanT')}</small></th>` +
+  let h = `<thead><tr><th rowspan="2" class="bcol">${term('base', T('resBase'))}<small>${T('scanT')}</small></th>` +
     cols.map(c => `<th colspan="2" class="grp gs">${c.head}${c.sub ? `<small>${c.sub}</small>` : ''}</th>`).join('') + '</tr><tr>' +
-    cols.map(() => `<th class="gs">${T('resLive')}</th><th>${T('massLim')}</th>`).join('') + '</tr></thead><tbody>';
+    cols.map(() => `<th class="gs">${term('res', T('resLive'))}</th><th>${term('mass', T('massLim'))}</th>`).join('') + '</tr></thead><tbody>';
   for (let rr=0; rr<=100; rr++){
     const vals = cols.map(c => { const r = rr * c.m; return {r, v: maxMass(c.set, r)}; });
     h += `<tr data-r="${rr}"${rr%10===0?' class="ten"':''}><td class="rv key">${rr}%</td>` +
@@ -607,6 +657,7 @@ const EQCOLS = {
     {k:'cool', l:'cCool', u: () => T('sec')}, {k:'power', l:'cPwr'}, {k:'emsig', l:'cEMs'}, {k:'hp', l:'cHP'},
   ],
 };
+const EQHELP = {'cPow': 'pow', 'cExt': 'ext', 'cRes': 'res', 'cInst': 'inst', 'cWin': 'win', 'cRate': 'rate', 'cAll': 'allrate', 'cOver': 'over', 'cInert': 'inert', 'cShat': 'shatter', 'cClus': 'cluster', 'cType': 'active', 'cPowM': 'effpow', 'cRsrc': 'rsrc', 'cGres': 'gres', 'cPres': 'pres', 'cIR': 'sens', 'cEM': 'sens', 'cCS': 'sens'};
 const priceCol = {k:'price', l:'cPrice', f: r => r.shops && r.shops.length ? fmt(r.shops[0][0]) + ' aUEC' : '—', sv: r => r.shops && r.shops.length ? r.shops[0][0] : null};
 
 function eqCell(c, r){
@@ -648,7 +699,7 @@ function renderEquip(){
   const dirOf = k => eqSort && eqSort.kind === eqKind && eqSort.k === k ? eqSort.dir : null;
   let h = '<thead><tr>' + [{k:'name', l:'cName'}, ...cols].map(c => {
     const d = dirOf(c.k);
-    return `<th data-k="${c.k}"${d ? ` data-dir="${d}" aria-sort="${d === 'asc' ? 'ascending' : 'descending'}"` : ''}>${T(c.l)}</th>`;
+    return `<th data-k="${c.k}"${d ? ` data-dir="${d}" aria-sort="${d === 'asc' ? 'ascending' : 'descending'}"` : ''}>${EQHELP[c.l] ? term(EQHELP[c.l], T(c.l)) : T(c.l)}</th>`;
   }).join('') + '</tr></thead><tbody>';
   rows.forEach(r => {
     const id = eqKind + ':' + r.name;
@@ -689,6 +740,51 @@ $('eqTbl').addEventListener('click', ev => {
 $('eqTbl').addEventListener('keydown', ev => {
   if ((ev.key === 'Enter' || ev.key === ' ') && ev.target.matches('tr.item')) { ev.preventDefault(); ev.target.click(); }
 });
+
+// ---------- ヘルプ（右上）とマウスオーバーの説明 ----------
+function renderHelp(){
+  const sec = (title, keys) => `<h3>${T(title)}</h3><dl>` + keys.map(k => `<dt>${HT(k, 0)}</dt><dd>${HT(k, 1)}</dd>`).join('') + '</dl>';
+  $('helpPop').innerHTML =
+    sec('hSecRock', ['base', 'res', 'mass', 'pow', 'effpow']) +
+    sec('hSecCharge', ['win', 'rate', 'allrate', 'inst', 'over']) +
+    sec('hSecOther', ['shatter', 'inert', 'cluster', 'ext', 'active']) +
+    sec('hSecRadar', ['rsrc', 'gres', 'pres', 'sens']);
+}
+let helpPinned = false, helpTimer = null;
+function showHelp(on){
+  clearTimeout(helpTimer);
+  $('helpPop').hidden = !on;
+  $('helpBtn').setAttribute('aria-expanded', on);
+  if (!on) helpPinned = false;
+}
+$('helpBtn').addEventListener('click', () => {
+  if (helpPinned) { showHelp(false); return; }
+  helpPinned = true; showHelp(true);
+});
+// マウスを乗せると開き、離れると閉じる（クリックで開いたときは開いたまま）
+['helpBtn', 'helpPop'].forEach(id => {
+  $(id).addEventListener('mouseenter', () => { if (matchMedia('(hover: hover)').matches) showHelp(true); });
+  $(id).addEventListener('mouseleave', () => { if (!helpPinned) helpTimer = setTimeout(() => showHelp(false), 250); });
+});
+document.addEventListener('keydown', ev => { if (ev.key === 'Escape') { showHelp(false); hideTip(); } });
+document.addEventListener('click', ev => { if (!$('hright').contains(ev.target)) showHelp(false); });
+
+// 用語の上にマウスを乗せる（またはキーボードで選ぶ）と、短い説明を出す
+function showTip(el){
+  const k = el.dataset.help; if (!HELP[k]) return;
+  const tip = $('tip');
+  tip.textContent = HT(k, 1); tip.hidden = false;
+  const r = el.getBoundingClientRect(), w = tip.offsetWidth, h = tip.offsetHeight;
+  let x = Math.min(Math.max(8, r.left), window.innerWidth - w - 8);
+  let y = r.bottom + 6; if (y + h > window.innerHeight - 8) y = r.top - h - 6;
+  tip.style.left = x + 'px'; tip.style.top = y + 'px';
+}
+function hideTip(){ $('tip').hidden = true; }
+document.addEventListener('mouseover', ev => { const t = ev.target.closest('.term'); if (t) showTip(t); });
+document.addEventListener('mouseout', ev => { if (ev.target.closest('.term')) hideTip(); });
+document.addEventListener('focusin', ev => { if (ev.target.matches('.term')) showTip(ev.target); });
+document.addEventListener('focusout', ev => { if (ev.target.matches('.term')) hideTip(); });
+window.addEventListener('scroll', hideTip, {passive: true, capture: true});
 
 let saved = null;
 try { saved = JSON.parse(localStorage.getItem('moleCrack3') || 'null'); } catch(e){}
