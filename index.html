@@ -72,6 +72,8 @@ header p{margin:4px 0 0;color:var(--muted);font-size:.9rem}
 .field select:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
 .spec{display:flex;flex-wrap:wrap;gap:2px 12px;font-size:.8rem;color:var(--muted)}
 .spec b{font-family:var(--f-mono);color:var(--fg);font-weight:600;font-variant-numeric:tabular-nums}
+.spec b.good{color:var(--good)}
+.spec b.bad{color:var(--bad)}
 .row2{display:flex;flex-wrap:wrap;gap:14px;align-items:end}
 .row2 .field{flex:1 1 16rem}
 .btn{font-family:var(--f-body);font-size:.85rem;padding:8px 12px;border:1px solid var(--line);border-radius:4px;background:var(--bg);color:var(--fg);cursor:pointer}
@@ -238,8 +240,8 @@ const LASERS = [
   {id:'lancet',   name:'Lancet MH2',  pow:4350, res:  0, inst:-10, range:45, slots:2},
 ];
 
-const APP_VERSION = '1.1.0';
-const APP_UPDATED = '2026-10-11 03:10';
+const APP_VERSION = '1.2.0';
+const APP_UPDATED = '2026-10-11 03:23';
 const GAME_VERSION = '4.10.1-LIVE';
 const DATA_FETCHED = '2026-10-11';
 
@@ -257,7 +259,7 @@ const GADGETS = [
 ];
 
 // 採掘モジュール（Star Citizen Wiki API、4.10.1-LIVE）。破砕に関係する出力（pow）と耐性（res）の補正だけ（%）。act = アクティブの効果時間（秒）
-// 出力や耐性に影響しないもの（Torrent、Clearcut、Torpid）は省略
+// 不安定性・チャージ幅・チャージ速度などは装備一覧のデータ（EQUIP）から引く
 const MODULES = [
   {id:'rieger3',  name:'Rieger-C3', pow: 25},
   {id:'rieger2',  name:'Rieger-C2', pow: 20},
@@ -283,6 +285,11 @@ const MODULES = [
   {id:'rime',     name:'Rime',      pow:-15, res:-25, act:20},
   {id:'lifeline', name:'Lifeline',  res:-15, act:15},
   {id:'optimum',  name:'Optimum',   pow:-15, act:60},
+  {id:'torrent3', name:'Torrent III'},
+  {id:'torrent2', name:'Torrent II'},
+  {id:'torrent1', name:'Torrent'},
+  {id:'clearcut', name:'Clearcut',  act:30},
+  {id:'torpid',   name:'Torpid',    act:60},
 ];
 
 // 文言：[日本語, English]
@@ -373,11 +380,20 @@ const pct = n => (n > 0 ? '+' : n < 0 ? '−' : '±') + Math.abs(n) + '%';
 const TUR = ['t1','t2','t3'];
 const laserOf = id => LASERS.find(l => l.id === $(id).value) || LASERS[0];
 const modOf = id => MODULES.find(m => m.id === id);
+// 装備一覧のデータ（Wiki API）から同じ品を引く
+const eqLaser = L => (EQUIP.lasers || []).find(e => e.name === L.name + ' Mining Laser') || {};
+const eqMod = m => (EQUIP.modules || []).find(e => e.name === m.name + ' Module') || {};
+// 補正（%）を掛け算で重ねる
+const comb = vs => (vs.reduce((a, v) => a * (1 + (v || 0)/100), 1) - 1) * 100;
 const modLabel = m => {
   const fx = [];
   if (m.act) fx.push(`${T('active')} ${m.act}${T('sec')}`);
   if (m.pow) fx.push(`${T('pow')} ${pct(m.pow)}`);
   if (m.res) fx.push(`${T('resMod')} ${pct(m.res)}`);
+  const e = eqMod(m);
+  if (e.inst) fx.push(`${T('inst')} ${pct(e.inst)}`);
+  if (e.win) fx.push(`${T('cWin')} ${pct(e.win)}`);
+  if (e.rate || e.allrate) fx.push(`${T('cRate')} ${pct(Math.round(comb([e.rate, e.allrate]) * 10) / 10)}`);
   return `${m.name}` + (lang === 'en' ? ` (${fx.join(', ')})` : `（${fx.join('・')}）`);
 };
 // 砲塔のモジュール枠を、レーザーの枠数に合わせて作り直す（選んでいた値は残す）
@@ -400,7 +416,12 @@ function rigOf(n){
   const m = (1 + L.res/100) * ms.reduce((a, x) => a * (1 + (x.res || 0)/100), 1);
   const key = L.id + '|' + ms.map(x => x.id).sort().join(',');
   const label = L.name + (ms.length ? ' + ' + ms.map(x => x.name).join(', ') : '');
-  return {L, ms, pow, m, key, label};
+  // 不安定性・最適チャージ幅・最適チャージ速度（全チャージ速度も含む）。レーザーとモジュールの補正の積
+  const eL = eqLaser(L), eM = ms.map(eqMod);
+  const inst = comb([eL.inst, ...eM.map(e => e.inst)]);
+  const win = comb([eL.win, ...eM.map(e => e.win)]);
+  const rate = comb([eL.rate, eL.allrate, ...eM.map(e => e.rate), ...eM.map(e => e.allrate)]);
+  return {L, ms, pow, m, key, label, inst, win, rate};
 }
 
 function maxMass(rigs, rockRes){
@@ -443,6 +464,13 @@ function applyLang(){
   render();
 }
 
+// 補正の表示。good: 1 = 大きいほど有利、-1 = 小さいほど有利
+function spec(label, v, good){
+  const r = Math.round(v * 10) / 10;
+  const cls = !r ? '' : (r * good > 0 ? 'good' : 'bad');
+  return `<span>${label} <b${cls ? ` class="${cls}"` : ''}>${pct(r)}</b></span>`;
+}
+
 function render(){
   const rigs = [1,2,3].map(rigOf);
 
@@ -452,8 +480,9 @@ function render(){
     $('f' + (i+1)).classList.toggle('off', !used.includes(i));
     $('s' + (i+1)).innerHTML =
       `<span>${T('pow')} <b>${fmt(L.pow)}</b>${R.pow !== L.pow ? ` → ${T('effPow')} <b>${fmt(R.pow)}</b>` : ''}</span>` +
-      `<span>${T('resMod')} <b>${pct(Math.round((R.m - 1) * 1000) / 10)}</b></span>` +
-      `<span>${T('inst')} <b>${pct(L.inst)}</b></span><span>${T('range')} <b>${L.range} m</b></span>`;
+      spec(T('resMod'), (R.m - 1) * 100, -1) + spec(T('inst'), R.inst, -1) +
+      spec(T('cWin'), R.win, 1) + spec(T('cRate'), R.rate, 1) +
+      `<span>${T('range')} <b>${L.range} m</b></span>`;
   });
   const urs = used.map(i => rigs[i]);
   const same = urs.every(r => r.key === urs[0].key);
