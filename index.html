@@ -546,11 +546,13 @@ $('settings').addEventListener('toggle', () => {
 let eqKind = 'lasers', eqSort = null, eqOpen = null;
 const sgn = (v, unit) => v == null ? '—' : (v > 0 ? '+' : v < 0 ? '−' : '±') + fmt1(Math.abs(v)) + (unit || '%');
 const fmt1 = v => (Math.round(v * 10) / 10).toLocaleString('en-US');
+// 整数は桁区切り、小数は小数第2位まで（0.25 や 2.5 秒を丸めない）
+const fmtN = v => Number.isInteger(v) ? fmt(v) : (Math.round(v * 100) / 100).toLocaleString('en-US');
 // good: 1 = 大きいほど採掘に有利、-1 = 小さいほど有利、0 = 色なし
 const EQCOLS = {
   lasers: [
     {k:'size', l:'cSize'}, {k:'grade', l:'cGrade', txt:1},
-    {k:'pmax', l:'cPow', f: r => r.pmin != null ? `${fmt(r.pmin)}–${fmt(r.pmax)}` : fmt(r.pmax)},
+    {k:'pmax', l:'cPow', f: r => r.pmin != null ? `${fmtN(r.pmin)}–${fmtN(r.pmax)}` : fmtN(r.pmax)},
     {k:'extract', l:'cExt'}, {k:'opt', l:'cOpt', u:' m'}, {k:'max', l:'cMax', u:' m'}, {k:'slots', l:'cSlots'},
     {k:'res', l:'cRes', pct:1, good:-1}, {k:'inst', l:'cInst', pct:1, good:-1}, {k:'win', l:'cWin', pct:1, good:1},
     {k:'rate', l:'cRate', pct:1, good:1}, {k:'allrate', l:'cAll', pct:1, good:1}, {k:'inert', l:'cInert', pct:1, good:0},
@@ -581,9 +583,9 @@ function eqCell(c, r){
   if (v == null || v === '') return {h: '—', cls: 'dim'};
   if (c.txt) return {h: String(v), cls: ''};
   if (c.pct) return {h: sgn(v), cls: !v || !c.good ? '' : (v * c.good > 0 ? 'good' : 'bad')};
-  if (c.x) return {h: fmt1(v), cls: ''};
+  if (c.x) return {h: fmtN(v), cls: ''};
   const u = typeof c.u === 'function' ? c.u() : (c.u || '');
-  return {h: fmt(v) + u, cls: ''};
+  return {h: fmtN(v) + u, cls: ''};
 }
 
 function renderEquip(){
