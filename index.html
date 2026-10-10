@@ -117,6 +117,8 @@ footer{display:grid;gap:6px;border-top:1px solid var(--line);padding-top:14px;fo
 footer p{margin:0}
 footer a{color:var(--accent)}
 @media (prefers-reduced-motion:reduce){.settings summary::before{transition:none}}
+/* Artifact の骨組みにある規則。GitHub Pages 版にはないので自前で持つ */
+[hidden]{display:none!important}
 /* 画面の切り替え（早見表／装備一覧） */
 .views{display:flex;gap:4px;border-bottom:1px solid var(--line)}
 .views button{font-family:var(--f-disp);font-size:.95rem;letter-spacing:.03em;padding:8px 16px;border:1px solid transparent;border-bottom:0;border-radius:6px 6px 0 0;background:transparent;color:var(--muted);cursor:pointer;margin-bottom:-1px}
